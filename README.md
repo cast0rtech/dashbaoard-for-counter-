@@ -1,31 +1,33 @@
-# Janitza Monitor
+# Janitza Monitor ⚡
 
-Dashboard para leer contadores Janitza por Modbus TCP. El CSV adjunto aporta inventario, IP, puerto, unidad, modelo y descripción; las lecturas de kWh/kW se consultan directamente en los medidores.
+A local dashboard for reading Janitza meters over Modbus TCP. The CSV inventory provides each meter's IP address, port, unit ID, model, and description; kWh and kW readings are polled directly from the meters.
 
-## Arranque
+## 🚀 Getting started
 
-Ejecuta Node.js 18 o posterior en una máquina con acceso de red a los medidores:
+Run Node.js 18 or later on a computer that can reach the meters over the network:
 
 ```powershell
 node server.js
 ```
 
-Abre `http://127.0.0.1:8080`, selecciona **Cargar CSV** y carga el inventario Janitza. El proceso consulta los equipos cada 10 segundos. El dashboard muestra el estado individual y conserva la última lectura disponible cuando un equipo deja de responder.
+Open `http://127.0.0.1:8080`, choose **Load inventory**, and select the Janitza CSV file. The service polls the meters every 10 seconds. The dashboard shows each meter's connection status and keeps its last successful reading if the meter stops responding.
 
-No abras `index.html` directamente como archivo: el servidor local sirve la interfaz y el puente Modbus. No se necesita instalar paquetes npm. El servicio escucha solo en `127.0.0.1`; debe ejecutarse en un equipo que tenga ruta a las IPs de los medidores.
+Do not open `index.html` directly as a file. The local server serves the dashboard and the Modbus bridge. No npm packages are required. The service listens only on `127.0.0.1`, so run it on a computer with a network route to the meters' IP addresses.
 
-## Lecturas Modbus
+## 🔌 Modbus readings
 
-El servicio usa Modbus TCP y realiza únicamente solicitudes de lectura (función 03). Para endpoints completos toma puerto y unit ID del CSV. En el formato abreviado de UMG 604/605 (`IP|5000`), interpreta `5000` como timeout en milisegundos y usa puerto TCP 502, unit ID 1. Decodifica valores float32 big-endian: potencia activa total en el registro 19026 (W) y energía activa total en 19060 (Wh), convertidos a kW y kWh. Los registros coinciden con las listas oficiales Janitza para UMG 604, UMG 96-PA y UMG 96RM-E. Si una variante de firmware usa un mapa diferente, su lectura se indicará como desconectada/error.
+The service uses Modbus TCP and sends read-only requests (function code 03). For full endpoints, it reads the port and unit ID from the CSV. For the abbreviated UMG 604/605 format (`IP|5000`), it treats `5000` as the timeout in milliseconds and defaults to TCP port 502 and unit ID 1.
 
-El host donde se ejecuta `server.js` debe poder alcanzar cada IP y el puerto Modbus configurado. El navegador no conecta directamente a los puertos TCP de los medidores.
+The service decodes big-endian float32 values: total active power at register 19026 (W) and total active energy at register 19060 (Wh), converting them to kW and kWh. These registers match Janitza's address lists for the UMG 604, UMG 96-PA, and UMG 96RM-E. If a firmware variant uses a different map, the meter will show a connection/read error.
 
-## Funciones
+The computer running `server.js` must be able to reach every meter IP and configured Modbus port. The browser cannot connect directly to the meters' TCP ports.
 
-- KPI globales y por grupo/edificio detectado desde el código de ubicación.
-- Una tarjeta independiente por contador con su estado, IP, modelo, consumo acumulado y potencia actual.
-- Búsqueda, filtro por grupo y orden por consumo o potencia.
-- Estado de conexión por equipo y hora de última lectura.
-- Interfaz en español, inglés o alemán, con idioma guardado en `localStorage`.
-- Temas claro y oscuro con preferencia guardada en `localStorage`.
-- Diseño adaptable para pantallas pequeñas.
+## 📊 Features
+
+- Global KPIs and totals for the detected building groups.
+- One card per meter, showing its status, IP, model, accumulated energy, and current power.
+- Search, group filtering, and sorting by energy or power.
+- Per-meter connection status and last successful reading time.
+- Spanish, English, and German interface languages, saved in `localStorage`.
+- Light and dark themes, saved in `localStorage`.
+- Responsive layout for smaller screens.
