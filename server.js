@@ -15,19 +15,20 @@ const TIMEOUT_MS = Math.max(500, Number(process.env.MODBUS_TIMEOUT_MS || 1800));
 const MAX_CSV_BYTES = 2 * 1024 * 1024;
 const ROOT = __dirname;
 const INVENTORY_FILE = path.join(ROOT, 'inventory.csv');
-const HISTORY_FILE = path.join(ROOT, 'history.json');
+const HISTORY_FILE = path.join(ROOT, 'local-consumption.json');
 const HISTORY_DAYS = 30;
 
-// Janitza publishes these common measured values as 32-bit IEEE floats:
-// active power sum at 19026 (W), active energy sum at 19060 (Wh).
-// References: official UMG 96-PA and UMG 96RM-E address lists.
-const REGISTER_MAP = { power: 19026, energy: 19060 };
+// Janitza active power sum: 32-bit IEEE float at register 19026 (W).
+// Local consumption history is integrated from sampled active power; the
+// meter's stored cumulative-energy register is deliberately not used.
+const REGISTER_MAP = { power: 19026 };
+const MAX_INTEGRATION_GAP_MS = 5 * 60 * 1000;
 let meters = [];
 let readings = new Map();
 let pollRunning = false;
 let transactionId = 1;
 let lastPollAt = null;
-let history = { version: 1, meters: {} };
+let history = { version: 2, calculation: 'sampled-power-integration-v1', meters: {} };
 
 function localDateKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -41,10 +42,14 @@ function inferBuilding(name) {
 
 function loadLocalData() {
   try {
-    if (fs.existsSync(HISTORY_FILE)) history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+    if (fs.existsSync(HISTORY_FILE)) {
+      const saved = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+      if (saved.version === 2 && saved.calculation === 'sampled-power-integration-v1' && saved.meters) history = saved;
+      else console.log('Starting fresh local history with sampled power; older history used meter counters.');
+    }
   } catch (error) {
     console.warn(`Could not read ${path.basename(HISTORY_FILE)}: ${error.message}`);
-    history = { version: 1, meters: {} };
+    history = { version: 2, calculation: 'sampled-power-integration-v1', meters: {} };
   }
   try {
     if (fs.existsSync(INVENTORY_FILE)) {
@@ -56,30 +61,43 @@ function loadLocalData() {
   }
 }
 
-function updateHistory(meter, energyKwh, at = new Date()) {
-  if (!Number.isFinite(energyKwh)) return;
+function updateHistory(meter, powerKw, at = new Date()) {
+  if (!Number.isFinite(powerKw)) return 0;
   const record = history.meters[meter.name] ||= {
     name: meter.name, description: meter.description, model: meter.model,
-    ip: meter.ip, building: meter.building, days: {}, lastEnergyKwh: null, lastAt: null,
+    ip: meter.ip, building: meter.building, days: {}, totalEnergyKwh: 0,
+    lastPowerKw: null, lastAt: null,
   };
   record.description = meter.description;
   record.model = meter.model;
   record.ip = meter.ip;
   record.building = meter.building;
-  const day = localDateKey(at);
-  if (record.lastEnergyKwh == null) record.days[day] ??= 0;
-  else {
-    const delta = energyKwh - record.lastEnergyKwh;
-    // A negative change indicates a meter reset or rollover; start a new baseline.
-    if (delta >= 0) record.days[day] = (record.days[day] || 0) + delta;
-    else record.days[day] ??= 0;
+  const currentTime = at.getTime();
+  const previousTime = record.lastAt ? Date.parse(record.lastAt) : NaN;
+  const elapsed = currentTime - previousTime;
+  if (Number.isFinite(record.lastPowerKw) && elapsed > 0 && elapsed <= MAX_INTEGRATION_GAP_MS) {
+    // Integrate positive import power between samples, splitting intervals at local midnight.
+    const averageImportKw = Math.max(0, (record.lastPowerKw + powerKw) / 2);
+    let cursor = previousTime;
+    while (cursor < currentTime) {
+      const date = new Date(cursor);
+      const midnight = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).getTime();
+      const segmentEnd = Math.min(currentTime, midnight);
+      const deltaKwh = averageImportKw * (segmentEnd - cursor) / 3600000;
+      const day = localDateKey(new Date(cursor));
+      record.days[day] = (record.days[day] || 0) + deltaKwh;
+      record.totalEnergyKwh += deltaKwh;
+      cursor = segmentEnd;
+    }
   }
-  record.lastEnergyKwh = energyKwh;
+  record.days[localDateKey(at)] ??= 0;
+  record.lastPowerKw = powerKw;
   record.lastAt = at.toISOString();
   const cutoff = new Date(at);
   cutoff.setDate(cutoff.getDate() - (HISTORY_DAYS - 1));
   const firstDay = localDateKey(cutoff);
   for (const key of Object.keys(record.days)) if (key < firstDay) delete record.days[key];
+  return record.totalEnergyKwh;
 }
 
 async function saveHistory() {
@@ -223,17 +241,13 @@ function decodeFloat(registers) {
 
 async function pollMeter(meter) {
   try {
-    const [powerRegs, energyRegs] = await Promise.all([
-      readHoldingRegisters(meter, REGISTER_MAP.power),
-      readHoldingRegisters(meter, REGISTER_MAP.energy),
-    ]);
-    const energy = decodeFloat(energyRegs) / 1000;
+    const powerKw = decodeFloat(await readHoldingRegisters(meter, REGISTER_MAP.power)) / 1000;
+    const localEnergyKwh = updateHistory(meter, powerKw);
     readings.set(meter.name, {
-      power: decodeFloat(powerRegs) / 1000,
-      energy,
+      power: powerKw,
+      energy: localEnergyKwh,
       connected: true, error: '', updatedAt: new Date().toISOString(),
     });
-    updateHistory(meter, energy);
   } catch (error) {
     const previous = readings.get(meter.name) || {};
     readings.set(meter.name, { ...previous, connected: false, error: error.message, updatedAt: new Date().toISOString() });
