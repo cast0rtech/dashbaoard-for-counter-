@@ -18,10 +18,10 @@ const INVENTORY_FILE = path.join(ROOT, 'inventory.csv');
 const HISTORY_FILE = path.join(ROOT, 'local-consumption.json');
 const HISTORY_DAYS = 30;
 
-// Janitza active power sum: 32-bit IEEE float at register 19026 (W).
-// Local consumption history is integrated from sampled active power; the
-// meter's stored cumulative-energy register is deliberately not used.
-const REGISTER_MAP = { power: 19026 };
+// Janitza active power sum: float32 at register 19026 (W).
+// Siemens PAC 2200 total active power: float32 at Modbus offset 65 (W).
+// Local consumption history integrates sampled power; meter energy counters are not read.
+const REGISTER_MAP = { janitzaPower: 19026, siemensPac2200Power: 65 };
 const MAX_INTEGRATION_GAP_MS = 5 * 60 * 1000;
 let meters = [];
 let readings = new Map();
@@ -179,7 +179,8 @@ function parseCsv(text) {
 
 function makeMeter(input) {
   const ip = String(input.ip || '').trim();
-  if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) return null;
+  const octets = ip.split('.');
+  if (octets.length !== 4 || octets.some(part => !/^\d{1,3}$/.test(part) || Number(part) > 255)) return null;
   const name = String(input.name || ip).trim();
   const model = String(input.model || 'Janitza').trim();
   return {
@@ -189,6 +190,12 @@ function makeMeter(input) {
     unitId: Math.min(247, Math.max(0, Number.parseInt(input.unitId, 10) || 1)),
     timeoutMs: Math.min(15000, Math.max(500, Number.parseInt(input.timeoutMs, 10) || TIMEOUT_MS)),
   };
+}
+
+function serializeInventory(items) {
+  const headers = ['nombre_equipo', 'descripcion', 'edificio', 'modbus_ip', 'modbus_port', 'modbus_unit_id', 'timeout_ms', 'modelo'];
+  const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  return [headers.join(','), ...items.map(m => [m.name, m.description, m.building, m.ip, m.port, m.unitId, m.timeoutMs, m.model].map(quote).join(','))].join('\r\n') + '\r\n';
 }
 
 function nextTransaction() {
@@ -241,7 +248,9 @@ function decodeFloat(registers) {
 
 async function pollMeter(meter) {
   try {
-    const powerKw = decodeFloat(await readHoldingRegisters(meter, REGISTER_MAP.power)) / 1000;
+    const isPac2200 = /siemens|pac\s*2200/i.test(meter.model);
+    const powerRegister = isPac2200 ? REGISTER_MAP.siemensPac2200Power : REGISTER_MAP.janitzaPower;
+    const powerKw = decodeFloat(await readHoldingRegisters(meter, powerRegister)) / 1000;
     const localEnergyKwh = updateHistory(meter, powerKw);
     readings.set(meter.name, {
       power: powerKw,
@@ -300,13 +309,34 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       const parsed = parseCsv(body);
       if (!parsed.length) return sendJson(res, 400, { error: 'No se encontraron equipos con IP y configuración válida.' });
-      try { fs.writeFileSync(INVENTORY_FILE, body, 'utf8'); }
+      try { fs.writeFileSync(INVENTORY_FILE, serializeInventory(parsed), 'utf8'); }
       catch (error) { return sendJson(res, 500, { error: `No se pudo guardar el inventario en la carpeta del dashboard: ${error.message}` }); }
       meters = parsed; readings = new Map(); lastPollAt = null;
       pollAll();
       return sendJson(res, 200, { count: meters.length, message: 'Inventario recibido; iniciando lectura Modbus TCP.' });
     });
     return;
+  }
+  if (req.method === 'POST' && req.url === '/api/devices/manual') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString('utf8'); if (body.length > 16 * 1024) req.destroy(); });
+    req.on('end', () => {
+      let input;
+      try { input = JSON.parse(body); } catch { return sendJson(res, 400, { error: 'Invalid meter details.' }); }
+      const meter = makeMeter({ ...input, model: input.model || 'Siemens PAC 2200' });
+      if (!meter || !String(input.name || '').trim()) return sendJson(res, 400, { error: 'A meter name and valid IPv4 address are required.' });
+      const existingIndex = meters.findIndex(item => item.name.toLowerCase() === meter.name.toLowerCase() || item.ip === meter.ip);
+      if (existingIndex >= 0) meters[existingIndex] = meter; else meters.push(meter);
+      try { fs.writeFileSync(INVENTORY_FILE, serializeInventory(meters), 'utf8'); }
+      catch (error) { return sendJson(res, 500, { error: `Could not save inventory: ${error.message}` }); }
+      pollAll();
+      return sendJson(res, 200, { count: meters.length, meter, message: 'Meter saved; starting Modbus TCP reading.' });
+    });
+    return;
+  }
+  if (req.method === 'GET' && req.url === '/api/devices/export') {
+    res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="meter-inventory.csv"', 'cache-control': 'no-store' });
+    return res.end(serializeInventory(meters));
   }
   if (req.method === 'GET' && req.url === '/api/readings') {
     return sendJson(res, 200, { meters: meters.map(meter => ({ ...meter, ...(readings.get(meter.name) || { connected: false, error: 'Esperando primera lectura' }) })), lastPollAt, pollRunning, pollIntervalMs: POLL_MS });
