@@ -6,8 +6,11 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const net = require('node:net');
+const os = require('node:os');
 
-const HOST = process.env.HOST || '127.0.0.1';
+// Listen on LAN interfaces by default so other devices can open the dashboard.
+// Set HOST=127.0.0.1 to restrict access to this computer only.
+const HOST = process.env.HOST || '0.0.0.0';
 let PORT = Number(process.env.PORT || 8080);
 const PORT_WAS_EXPLICIT = Boolean(process.env.PORT);
 const POLL_MS = Math.max(3000, Number(process.env.POLL_MS || 10000));
@@ -428,14 +431,28 @@ server.on('error', error => {
   process.exitCode = 1;
 });
 
+function printAccessUrls() {
+  console.log(`Local dashboard: http://127.0.0.1:${PORT}`);
+  if (HOST === '127.0.0.1' || HOST === 'localhost') {
+    console.log('LAN access is disabled (HOST is bound to loopback).');
+    return;
+  }
+  const addresses = Object.values(os.networkInterfaces()).flatMap(entries => entries || [])
+    .filter(entry => !entry.internal && (entry.family === 'IPv4' || entry.family === 4))
+    .map(entry => entry.address);
+  for (const address of [...new Set(addresses)]) console.log(`LAN dashboard: http://${address}:${PORT}`);
+  if (!addresses.length) console.log('No active LAN IPv4 address found.');
+}
+
 loadLocalData();
 server.listen(PORT, HOST, () => {
-  console.log(`Janitza Monitor: http://${HOST}:${PORT}`);
+  console.log(`Janitza Monitor listening on ${HOST}:${PORT}`);
+  printAccessUrls();
   console.log(`Modbus polling interval: ${POLL_MS} ms; timeout: ${TIMEOUT_MS} ms`);
   if (meters.length) pollAll();
   if (process.env.OPEN_BROWSER === '1' && process.platform === 'win32') {
     const { spawn } = require('node:child_process');
-    spawn('cmd.exe', ['/c', 'start', '', `http://${HOST}:${PORT}`], {
+    spawn('cmd.exe', ['/c', 'start', '', `http://127.0.0.1:${PORT}`], {
       detached: true, stdio: 'ignore', windowsHide: true,
     }).unref();
   }

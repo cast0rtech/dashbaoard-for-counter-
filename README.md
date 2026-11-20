@@ -14,7 +14,11 @@ Open `http://127.0.0.1:8080`, choose **Load inventory**, and select a meter inve
 
 Select any meter card on the main page to open its individual history chart. The chart shows daily energy consumption for the last 7, 14, or 30 days. The dashboard integrates its locally sampled active-power readings over time and stores the resulting history and local energy total in `local-consumption.json`. It does not use the meter's stored cumulative kWh register for tracking. A new installation starts accumulating history after its first successful poll; it cannot recreate days from before the dashboard was running. Intervals longer than five minutes are skipped so downtime is not counted as consumption.
 
-Do not open `index.html` directly as a file. The local server serves both pages and the Modbus bridge. No npm packages are required. The service listens only on `127.0.0.1`; if the default port is busy, it tries the next port and prints the address it chose. Run it on a computer with a network route to the meters' IP addresses.
+Do not open `index.html` directly as a file. The local server serves both pages and the Modbus bridge. No npm packages are required. By default, it listens on all network interfaces; if the default port is busy, it tries the next port and prints the addresses it chose. Run it on a computer with a network route to the meters' IP addresses.
+
+## 🌐 Share on your local network
+
+Start the dashboard with `start-dashboard.bat` and use the `LAN dashboard` URL printed in its console window on another computer, tablet, or phone connected to the same network. The computer running the dashboard must remain on and the console window must stay open. If Windows Firewall asks, allow Node.js on **Private networks** (or allow inbound TCP on the dashboard port shown in the console). Do not create a Public-network firewall rule. To use the dashboard only on the host computer, start it with `HOST=127.0.0.1` set in the environment. LAN users can access the dashboard and its inventory controls; the app does not require a login.
 
 ## 🔌 Modbus readings
 
