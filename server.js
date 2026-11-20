@@ -20,8 +20,12 @@ const HISTORY_DAYS = 30;
 
 // Janitza active power sum: float32 at register 19026 (W).
 // Siemens PAC 2200 total active power: float32 at Modbus offset 65 (W).
-// Local consumption history integrates sampled power; meter energy counters are not read.
-const REGISTER_MAP = { janitzaPower: 19026, siemensPac2200Power: 65 };
+// Local chart history integrates sampled power. Separately read the device's
+// cumulative import counter for exact meter-reported totals in the UI.
+const REGISTER_MAP = {
+  janitzaPower: 19026, janitzaImportEnergy: 19068,
+  siemensPac2200Power: 65, siemensPac2200ImportEnergy: 801,
+};
 const MAX_INTEGRATION_GAP_MS = 5 * 60 * 1000;
 let meters = [];
 let readings = new Map();
@@ -246,15 +250,37 @@ function decodeFloat(registers) {
   return value;
 }
 
+function decodeDouble(registers, offset = 0) {
+  const bytes = Buffer.alloc(8);
+  for (let i = 0; i < 4; i++) bytes.writeUInt16BE(registers[offset + i], i * 2);
+  const value = bytes.readDoubleBE(0);
+  if (!Number.isFinite(value) || value < 0) throw new Error('Lectura de energía no válida');
+  return value;
+}
+
+async function readMeterEnergyKwh(meter, isPac2200) {
+  if (isPac2200) {
+    // Siemens PAC 2200 stores import energy as two float64 Wh tariff counters.
+    const registers = await readHoldingRegisters(meter, REGISTER_MAP.siemensPac2200ImportEnergy, 8);
+    return (decodeDouble(registers, 0) + decodeDouble(registers, 4)) / 1000;
+  }
+  // Janitza cumulative active energy consumed, L1-L3, in Wh (float32).
+  return decodeFloat(await readHoldingRegisters(meter, REGISTER_MAP.janitzaImportEnergy)) / 1000;
+}
+
 async function pollMeter(meter) {
   try {
     const isPac2200 = /siemens|pac\s*2200/i.test(meter.model);
     const powerRegister = isPac2200 ? REGISTER_MAP.siemensPac2200Power : REGISTER_MAP.janitzaPower;
-    const powerKw = decodeFloat(await readHoldingRegisters(meter, powerRegister)) / 1000;
+    const [powerRegisters, meterEnergyKwh] = await Promise.all([
+      readHoldingRegisters(meter, powerRegister), readMeterEnergyKwh(meter, isPac2200),
+    ]);
+    const powerKw = decodeFloat(powerRegisters) / 1000;
     const localEnergyKwh = updateHistory(meter, powerKw);
     readings.set(meter.name, {
       power: powerKw,
       energy: localEnergyKwh,
+      meterEnergy: meterEnergyKwh,
       connected: true, error: '', updatedAt: new Date().toISOString(),
     });
   } catch (error) {
