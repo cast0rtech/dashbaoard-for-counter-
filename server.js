@@ -8,11 +8,15 @@ const path = require('node:path');
 const net = require('node:net');
 
 const HOST = process.env.HOST || '127.0.0.1';
-const PORT = Number(process.env.PORT || 8080);
+let PORT = Number(process.env.PORT || 8080);
+const PORT_WAS_EXPLICIT = Boolean(process.env.PORT);
 const POLL_MS = Math.max(3000, Number(process.env.POLL_MS || 10000));
 const TIMEOUT_MS = Math.max(500, Number(process.env.MODBUS_TIMEOUT_MS || 1800));
 const MAX_CSV_BYTES = 2 * 1024 * 1024;
 const ROOT = __dirname;
+const INVENTORY_FILE = path.join(ROOT, 'inventory.csv');
+const HISTORY_FILE = path.join(ROOT, 'history.json');
+const HISTORY_DAYS = 30;
 
 // Janitza publishes these common measured values as 32-bit IEEE floats:
 // active power sum at 19026 (W), active energy sum at 19060 (Wh).
@@ -23,6 +27,65 @@ let readings = new Map();
 let pollRunning = false;
 let transactionId = 1;
 let lastPollAt = null;
+let history = { version: 1, meters: {} };
+
+function localDateKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function inferBuilding(name) {
+  const code = String(name || '').match(/(?:[A-Z]{1,4}\.){2,}[A-Z0-9]+(?:\.[A-Z0-9]+)*/i)?.[0];
+  if (code) return code.split('.').slice(0, 5).join('.');
+  return String(name || 'Unknown group').trim().split(/[\s_-]+/).slice(0, 2).join(' ') || 'Unknown group';
+}
+
+function loadLocalData() {
+  try {
+    if (fs.existsSync(HISTORY_FILE)) history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+  } catch (error) {
+    console.warn(`Could not read ${path.basename(HISTORY_FILE)}: ${error.message}`);
+    history = { version: 1, meters: {} };
+  }
+  try {
+    if (fs.existsSync(INVENTORY_FILE)) {
+      meters = parseCsv(fs.readFileSync(INVENTORY_FILE, 'utf8'));
+      if (meters.length) console.log(`Loaded ${meters.length} meters from saved inventory.`);
+    }
+  } catch (error) {
+    console.warn(`Could not read ${path.basename(INVENTORY_FILE)}: ${error.message}`);
+  }
+}
+
+function updateHistory(meter, energyKwh, at = new Date()) {
+  if (!Number.isFinite(energyKwh)) return;
+  const record = history.meters[meter.name] ||= {
+    name: meter.name, description: meter.description, model: meter.model,
+    ip: meter.ip, building: meter.building, days: {}, lastEnergyKwh: null, lastAt: null,
+  };
+  record.description = meter.description;
+  record.model = meter.model;
+  record.ip = meter.ip;
+  record.building = meter.building;
+  const day = localDateKey(at);
+  if (record.lastEnergyKwh == null) record.days[day] ??= 0;
+  else {
+    const delta = energyKwh - record.lastEnergyKwh;
+    // A negative change indicates a meter reset or rollover; start a new baseline.
+    if (delta >= 0) record.days[day] = (record.days[day] || 0) + delta;
+    else record.days[day] ??= 0;
+  }
+  record.lastEnergyKwh = energyKwh;
+  record.lastAt = at.toISOString();
+  const cutoff = new Date(at);
+  cutoff.setDate(cutoff.getDate() - (HISTORY_DAYS - 1));
+  const firstDay = localDateKey(cutoff);
+  for (const key of Object.keys(record.days)) if (key < firstDay) delete record.days[key];
+}
+
+async function saveHistory() {
+  try { await fs.promises.writeFile(HISTORY_FILE, JSON.stringify(history), 'utf8'); }
+  catch (error) { console.warn(`Could not save local history: ${error.message}`); }
+}
 
 function normalize(value) {
   return String(value ?? '').trim().toLowerCase().normalize('NFD')
@@ -71,6 +134,7 @@ function parseCsv(text) {
         name: get('nombre_equipo', 'nombre_del_equipo', 'name', 'device_name', 'equipo', 'id') || ip,
         description: get('descripcion', 'description'),
         model: get('modelo', 'model'),
+        building: get('edificio', 'building', 'grupo'),
         ip,
         port: get('modbus_port', 'port') || (shortEndpoint ? 502 : parts[1]),
         timeoutMs: get('timeout_ms', 'modbus_timeout_ms') || (shortEndpoint ? parts[1] : parts[2]),
@@ -90,6 +154,7 @@ function parseCsv(text) {
       model: cells[0], ip: endpoint[0], port: shortEndpoint ? 502 : endpoint[1],
       timeoutMs: shortEndpoint ? endpoint[1] : endpoint[2], unitId: endpoint[3],
       name: cells[3] || cells[4], description: cells[4] || cells[3],
+      building: inferBuilding(cells[3] || cells[4]),
     });
   }).filter(Boolean);
 }
@@ -101,6 +166,7 @@ function makeMeter(input) {
   const model = String(input.model || 'Janitza').trim();
   return {
     name, description: String(input.description || name).trim(), model, ip,
+    building: String(input.building || inferBuilding(name)).trim(),
     port: Math.min(65535, Math.max(1, Number.parseInt(input.port, 10) || 502)),
     unitId: Math.min(247, Math.max(0, Number.parseInt(input.unitId, 10) || 1)),
     timeoutMs: Math.min(15000, Math.max(500, Number.parseInt(input.timeoutMs, 10) || TIMEOUT_MS)),
@@ -161,11 +227,13 @@ async function pollMeter(meter) {
       readHoldingRegisters(meter, REGISTER_MAP.power),
       readHoldingRegisters(meter, REGISTER_MAP.energy),
     ]);
+    const energy = decodeFloat(energyRegs) / 1000;
     readings.set(meter.name, {
       power: decodeFloat(powerRegs) / 1000,
-      energy: decodeFloat(energyRegs) / 1000,
+      energy,
       connected: true, error: '', updatedAt: new Date().toISOString(),
     });
+    updateHistory(meter, energy);
   } catch (error) {
     const previous = readings.get(meter.name) || {};
     readings.set(meter.name, { ...previous, connected: false, error: error.message, updatedAt: new Date().toISOString() });
@@ -185,6 +253,7 @@ async function pollAll() {
     });
     await Promise.all(workers);
     lastPollAt = new Date().toISOString();
+    await saveHistory();
   } finally { pollRunning = false; }
 }
 
@@ -217,6 +286,8 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       const parsed = parseCsv(body);
       if (!parsed.length) return sendJson(res, 400, { error: 'No se encontraron equipos con IP y configuración válida.' });
+      try { fs.writeFileSync(INVENTORY_FILE, body, 'utf8'); }
+      catch (error) { return sendJson(res, 500, { error: `No se pudo guardar el inventario en la carpeta del dashboard: ${error.message}` }); }
       meters = parsed; readings = new Map(); lastPollAt = null;
       pollAll();
       return sendJson(res, 200, { count: meters.length, message: 'Inventario recibido; iniciando lectura Modbus TCP.' });
@@ -226,15 +297,61 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url === '/api/readings') {
     return sendJson(res, 200, { meters: meters.map(meter => ({ ...meter, ...(readings.get(meter.name) || { connected: false, error: 'Esperando primera lectura' }) })), lastPollAt, pollRunning, pollIntervalMs: POLL_MS });
   }
+  if (req.method === 'GET' && req.url.startsWith('/api/history')) {
+    const url = new URL(req.url, `http://${HOST}:${PORT}`);
+    const requestedDays = Number.parseInt(url.searchParams.get('days') || '7', 10);
+    const dayCount = Math.min(HISTORY_DAYS, Math.max(1, Number.isFinite(requestedDays) ? requestedDays : 7));
+    const dates = [];
+    for (let offset = dayCount - 1; offset >= 0; offset--) {
+      const day = new Date(); day.setDate(day.getDate() - offset); dates.push(localDateKey(day));
+    }
+    const source = meters.length ? meters : Object.values(history.meters).map(item => ({
+      name: item.name, description: item.description, model: item.model, ip: item.ip, building: item.building,
+    }));
+    const historyMeters = source.map(meter => {
+      const saved = history.meters[meter.name] || {};
+      return {
+        name: meter.name, description: meter.description, model: meter.model,
+        ip: meter.ip, building: meter.building,
+        connected: Boolean(readings.get(meter.name)?.connected),
+        lastAt: saved.lastAt || null,
+        days: dates.map(date => ({
+          date,
+          consumptionKwh: Object.prototype.hasOwnProperty.call(saved.days || {}, date) ? saved.days[date] : null,
+        })),
+      };
+    });
+    return sendJson(res, 200, { days: dates, meters: historyMeters, lastPollAt, retentionDays: HISTORY_DAYS });
+  }
   if (req.method === 'GET' && req.url === '/api/health') return sendJson(res, 200, { ok: true, meterCount: meters.length, lastPollAt, pollRunning });
   if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) return serveFile(res, path.join(ROOT, 'index.html'));
+  if (req.method === 'GET' && req.url.startsWith('/history.html')) return serveFile(res, path.join(ROOT, 'history.html'));
   if (req.method === 'GET' && req.url === '/server.js') return sendJson(res, 404, { error: 'Not found' });
   return sendJson(res, 404, { error: 'Not found' });
 });
 
+server.on('error', error => {
+  if (error.code === 'EADDRINUSE' && !PORT_WAS_EXPLICIT && PORT < 65535) {
+    console.warn(`Port ${PORT} is already in use; trying ${PORT + 1}.`);
+    PORT++;
+    server.listen(PORT, HOST);
+    return;
+  }
+  console.error(`Could not start the local dashboard: ${error.message}`);
+  process.exitCode = 1;
+});
+
+loadLocalData();
 server.listen(PORT, HOST, () => {
   console.log(`Janitza Monitor: http://${HOST}:${PORT}`);
   console.log(`Modbus polling interval: ${POLL_MS} ms; timeout: ${TIMEOUT_MS} ms`);
+  if (meters.length) pollAll();
+  if (process.env.OPEN_BROWSER === '1' && process.platform === 'win32') {
+    const { spawn } = require('node:child_process');
+    spawn('cmd.exe', ['/c', 'start', '', `http://${HOST}:${PORT}`], {
+      detached: true, stdio: 'ignore', windowsHide: true,
+    }).unref();
+  }
 });
 setInterval(pollAll, POLL_MS).unref();
 
