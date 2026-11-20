@@ -36,6 +36,7 @@ Copy the entire dashboard folder, including `server.js`, `index.html`, `history.
 - Per-meter connection status and last successful reading time.
 - Spanish, English, and German interface languages, saved in `localStorage`.
 - Manually add Siemens SENTRON PAC 2200 meters by name and IP address.
-- Export and import the meter inventory as Excel-compatible CSV for server migration.
+- Export and import the meter inventory as Excel-compatible CSV for server migration, including each meter’s `exclude_from_total` flag.
+- Mark central meters on their cards to exclude them from sums. The reference meter at `10.62.0.129` remains visible and the dashboard compares its locally tracked consumption against the included meter sum.
 - Light and dark themes, saved in `localStorage`.
 - Responsive layout for smaller screens.

@@ -161,6 +161,7 @@ function parseCsv(text) {
         port: get('modbus_port', 'port') || (shortEndpoint ? 502 : parts[1]),
         timeoutMs: get('timeout_ms', 'modbus_timeout_ms') || (shortEndpoint ? parts[1] : parts[2]),
         unitId: get('modbus_unit_id', 'unit_id', 'slave_id') || parts[3],
+        excludeFromTotal: get('exclude_from_total', 'excluir_suma', 'exclude_sum'),
       });
     }).filter(Boolean);
   }
@@ -190,6 +191,7 @@ function makeMeter(input) {
   return {
     name, description: String(input.description || name).trim(), model, ip,
     building: String(input.building || inferBuilding(name)).trim(),
+    excludeFromTotal: ip === '10.62.0.129' || /^(1|true|yes|ja|si|sí|x)$/i.test(String(input.excludeFromTotal || '').trim()),
     port: Math.min(65535, Math.max(1, Number.parseInt(input.port, 10) || 502)),
     unitId: Math.min(247, Math.max(0, Number.parseInt(input.unitId, 10) || 1)),
     timeoutMs: Math.min(15000, Math.max(500, Number.parseInt(input.timeoutMs, 10) || TIMEOUT_MS)),
@@ -197,9 +199,9 @@ function makeMeter(input) {
 }
 
 function serializeInventory(items) {
-  const headers = ['nombre_equipo', 'descripcion', 'edificio', 'modbus_ip', 'modbus_port', 'modbus_unit_id', 'timeout_ms', 'modelo'];
+  const headers = ['nombre_equipo', 'descripcion', 'edificio', 'modbus_ip', 'modbus_port', 'modbus_unit_id', 'timeout_ms', 'modelo', 'exclude_from_total'];
   const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
-  return [headers.join(','), ...items.map(m => [m.name, m.description, m.building, m.ip, m.port, m.unitId, m.timeoutMs, m.model].map(quote).join(','))].join('\r\n') + '\r\n';
+  return [headers.join(','), ...items.map(m => [m.name, m.description, m.building, m.ip, m.port, m.unitId, m.timeoutMs, m.model, m.excludeFromTotal ? 'true' : 'false'].map(quote).join(','))].join('\r\n') + '\r\n';
 }
 
 function nextTransaction() {
@@ -357,6 +359,21 @@ const server = http.createServer((req, res) => {
       catch (error) { return sendJson(res, 500, { error: `Could not save inventory: ${error.message}` }); }
       pollAll();
       return sendJson(res, 200, { count: meters.length, meter, message: 'Meter saved; starting Modbus TCP reading.' });
+    });
+    return;
+  }
+  if (req.method === 'POST' && req.url === '/api/devices/exclusion') {
+    let body = '';
+    req.on('data', chunk => { body += chunk.toString('utf8'); if (body.length > 16 * 1024) req.destroy(); });
+    req.on('end', () => {
+      let input;
+      try { input = JSON.parse(body); } catch { return sendJson(res, 400, { error: 'Invalid exclusion settings.' }); }
+      const meter = meters.find(item => item.name === input.name);
+      if (!meter) return sendJson(res, 404, { error: 'Meter not found.' });
+      meter.excludeFromTotal = Boolean(input.excludeFromTotal);
+      try { fs.writeFileSync(INVENTORY_FILE, serializeInventory(meters), 'utf8'); }
+      catch (error) { return sendJson(res, 500, { error: `Could not save inventory: ${error.message}` }); }
+      return sendJson(res, 200, { name: meter.name, excludeFromTotal: meter.excludeFromTotal });
     });
     return;
   }
