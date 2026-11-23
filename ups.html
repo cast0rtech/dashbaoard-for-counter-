@@ -1,806 +1,1069 @@
 <!doctype html>
 <html lang="es">
+
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#f1f4f5">
-<title>Riello UPS · Monitor</title>
-<style>
-:root{
-  color-scheme:light;
-  --bg:#f1f4f5;
-  --panel:#fff;
-  --panel2:#f7f9f9;
-  --ink:#1d292c;
-  --muted:#778589;
-  --line:#e4e9e9;
-  --accent:#176f68;
-  --accent-soft:#e5f2ef;
-  --shadow:0 12px 38px #2035390a;
-  --warn:#a36d2d;
-  --danger:#e74c3c;
-  --danger-soft:#fdf2f2;
-}
-[data-theme=dark]{
-  color-scheme:dark;
-  --bg:#161a1d;
-  --panel:#20262a;
-  --panel2:#252c30;
-  --ink:#e8eeee;
-  --muted:#9ba9ab;
-  --line:#343e42;
-  --accent:#71c4b4;
-  --accent-soft:#263c39;
-  --shadow:0 12px 38px #0003;
-  --warn:#e1b16c;
-  --danger:#e74c3c;
-  --danger-soft:#361717;
-}
-*{box-sizing:border-box}
-body{
-  margin:0;
-  background:var(--bg);
-  color:var(--ink);
-  font-family:Inter,system-ui,sans-serif;
-  transition:background .2s,color .2s;
-}
-.shell{max-width:1440px;margin:auto;padding:30px 40px 52px}
-.top,.hero,.card-head,.card-top,.actions{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-}
-.top{margin-bottom:36px}
-.brand{font-weight:800;display:flex;align-items:center;gap:12px}
-.mark{
-  width:42px;height:42px;
-  border-radius:13px;
-  background:var(--accent);
-  color:white;
-  display:grid;
-  place-items:center;
-  font-size:20px;
-}
-.actions{justify-content:flex-end;flex-wrap:wrap}
-.btn,select.btn{
-  border:1px solid var(--line);
-  background:var(--panel);
-  color:var(--ink);
-  border-radius:11px;
-  padding:10px 13px;
-  font:700 12px Inter;
-  cursor:pointer;
-  text-decoration:none;
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-}
-.btn:hover,select.btn:hover{border-color:var(--accent);color:var(--accent)}
-.primary{background:var(--accent);color:white;border-color:var(--accent)}
-.primary:hover{opacity:.92;color:white}
-.language{min-width:68px;font-weight:700}
-.eyebrow,.label{font-size:10px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted);font-weight:800}
-.hero{align-items:end;margin-bottom:25px}
-.hero h1{font-size:clamp(27px,3.3vw,40px);letter-spacing:-.055em;margin:8px 0}
-.hero p{color:var(--muted);font-size:13px;margin:0}
-.summary{
-  border:1px solid var(--line);
-  padding:9px 14px;
-  border-radius:30px;
-  background:var(--panel);
-  font-size:11px;
-  color:var(--muted);
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-}
-.dot{width:7px;height:7px;border-radius:50%;background:#78ad98}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f1f4f5">
+  <title>Riello UPS · Monitor</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f1f4f5;
+      --panel: #fff;
+      --panel2: #f7f9f9;
+      --ink: #1d292c;
+      --muted: #778589;
+      --line: #e4e9e9;
+      --accent: #176f68;
+      --accent-soft: #e5f2ef;
+      --shadow: 0 12px 38px #2035390a;
+      --warn: #a36d2d;
+      --danger: #e74c3c;
+      --danger-soft: #fdf2f2;
+    }
 
-/* Dynamic Card Borders (Green vs Red/Warning) */
-.card{
-  border:2px solid var(--line);
-  border-radius:16px;
-  background:var(--panel);
-  box-shadow:var(--shadow);
-  padding:18px;
-  min-width:0;
-  transition:border-color .2s,box-shadow .2s;
-}
-.card.card-healthy{
-  border-color:#1db374 !important;
-  box-shadow:0 0 0 1px #1db37444,0 12px 38px #1db37418;
-}
-.card.card-red{
-  border-color:#e74c3c !important;
-  box-shadow:0 0 0 1px #e74c3c55,0 12px 38px #e74c3c22;
-  animation:cardPulseRed 2s infinite;
-}
-.card.card-offline{
-  border-color:#e74c3c !important;
-  box-shadow:0 0 0 1px #e74c3c33;
-}
-[data-theme=dark] .card.card-healthy{
-  border-color:#2ecc71 !important;
-  box-shadow:0 0 0 1px #2ecc7155,0 12px 38px #2ecc7122;
-}
-[data-theme=dark] .card.card-red{
-  border-color:#e74c3c !important;
-  box-shadow:0 0 0 1px #e74c3c66,0 12px 38px #e74c3c33;
-  animation:cardPulseRed 2s infinite;
-}
-@keyframes cardPulseRed{
-  0%,100%{border-color:#e74c3c}
-  50%{border-color:#ff7675}
-}
+    [data-theme=dark] {
+      color-scheme: dark;
+      --bg: #161a1d;
+      --panel: #20262a;
+      --panel2: #252c30;
+      --ink: #e8eeee;
+      --muted: #9ba9ab;
+      --line: #343e42;
+      --accent: #71c4b4;
+      --accent-soft: #263c39;
+      --shadow: 0 12px 38px #0003;
+      --warn: #e1b16c;
+      --danger: #e74c3c;
+      --danger-soft: #361717;
+    }
 
-.card:hover{filter:brightness(0.98)}
-.card-top{align-items:flex-start}
-.name{font-size:15px;font-weight:800}
-.meta{font-size:11px;color:var(--muted);margin-top:5px}
-.state{
-  font-size:9px;
-  padding:6px 9px;
-  border-radius:20px;
-  background:var(--panel2);
-  color:var(--muted);
-  font-weight:800;
-  white-space:nowrap;
-}
-.state.online{background:var(--accent-soft);color:var(--accent)}
-.state.offline{background:#fdf2e9;color:var(--warn)}
-.state.red{background:var(--danger-soft);color:var(--danger);border:1px solid #e74c3c44}
+    * {
+      box-sizing: border-box
+    }
 
-.metrics{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:17px}
-.metric{
-  background:var(--panel2);
-  border-radius:11px;
-  padding:12px;
-  border:1px solid var(--line);
-}
-.metric.span2{grid-column:span 2}
-.metric .label{font-size:9px;letter-spacing:.09em}
-.value{
-  font:500 23px ui-monospace,monospace;
-  margin-top:8px;
-  letter-spacing:-.04em;
-}
-.value.val-red{color:#e74c3c !important;font-weight:700}
-.unit{font:500 11px Inter;color:var(--muted);margin-left:4px}
-.foot{
-  border-top:1px solid var(--line);
-  margin-top:14px;
-  padding-top:12px;
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  font-size:10px;
-  color:var(--muted);
-  gap:8px;
-}
-.foot-info{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ip{font:11px ui-monospace,monospace;color:var(--ink);font-weight:600}
-.remove{
-  border:0;
-  background:none;
-  color:var(--muted);
-  cursor:pointer;
-  font:700 10px Inter;
-  padding:4px 6px;
-  border-radius:6px;
-}
-.remove:hover{color:#b33939;background:var(--panel2)}
-.empty{
-  grid-column:1/-1;
-  text-align:center;
-  padding:50px 20px;
-  color:var(--muted);
-  border:1px dashed var(--line);
-  border-radius:16px;
-  background:var(--panel);
-}
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: Inter, system-ui, sans-serif;
+      transition: background .2s, color .2s;
+    }
 
-/* Modals */
-dialog{
-  border:1px solid var(--line);
-  border-radius:16px;
-  padding:24px;
-  background:var(--panel);
-  color:var(--ink);
-  width:min(440px,calc(100% - 24px));
-  box-shadow:0 20px 80px #0003;
-}
-dialog::backdrop{background:#10202366}
-dialog h2{font-size:18px;margin:0 0 16px}
-form{display:grid;gap:12px}
-form label{font-size:11px;font-weight:700;color:var(--muted);display:grid;gap:6px}
-input,select{
-  background:var(--panel2);
-  color:var(--ink);
-  border:1px solid var(--line);
-  border-radius:9px;
-  padding:10px 11px;
-  font:12px Inter;
-  outline:none;
-}
-input:focus,select:focus{border-color:var(--accent)}
-.form-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
-.note{font-size:10px;color:var(--muted);line-height:1.55;margin:18px 0 0}
-.hidden{display:none !important}
+    .shell {
+      max-width: 1440px;
+      margin: auto;
+      padding: 30px 40px 52px
+    }
 
-/* Alarm Modal Popup */
-.alarm-dialog{
-  border:2px solid #e74c3c;
-  border-radius:18px;
-  background:var(--panel);
-  color:var(--ink);
-  width:min(520px,calc(100% - 24px));
-  box-shadow:0 0 40px #e74c3c55,0 20px 80px #0006;
-  padding:0;
-  overflow:hidden;
-}
-.alarm-dialog::backdrop{
-  background:#1a050588;
-  backdrop-filter:blur(2px);
-}
-.alarm-head{
-  background:#e74c3c;
-  color:white;
-  padding:16px 20px;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  font-weight:800;
-  font-size:15px;
-  letter-spacing:.05em;
-}
-.alarm-badge{
-  background:rgba(0,0,0,0.25);
-  padding:4px 10px;
-  border-radius:20px;
-  font-size:11px;
-  text-transform:uppercase;
-}
-.alarm-body{
-  padding:20px;
-  display:grid;
-  gap:12px;
-  max-height:60vh;
-  overflow-y:auto;
-}
-.alarm-item{
-  border:1px solid #e74c3c44;
-  background:var(--danger-soft);
-  padding:12px 14px;
-  border-radius:12px;
-  display:flex;
-  align-items:flex-start;
-  gap:12px;
-}
-.alarm-item-icon{font-size:22px;line-height:1}
-.alarm-item-name{font-weight:800;font-size:14px}
-.alarm-item-meta{font-size:10px;color:var(--muted);margin-top:2px}
-.alarm-reasons{
-  margin:6px 0 0;
-  padding-left:18px;
-  font-size:12px;
-  color:#c0392b;
-  line-height:1.5;
-}
-[data-theme=dark] .alarm-reasons{color:#f5b7b1}
-.alarm-foot{
-  padding:14px 20px;
-  border-top:1px solid var(--line);
-  display:flex;
-  justify-content:flex-end;
-  background:var(--panel2);
-}
-.alarm-pill{
-  background:#e74c3c !important;
-  color:white !important;
-  border-color:#c0392b !important;
-  animation:alarmPulse 1.4s infinite;
-  font-weight:800;
-}
-.alarm-pill:hover{background:#c0392b !important}
-@keyframes alarmPulse{
-  0%,100%{box-shadow:0 0 0 0 #e74c3c66}
-  50%{box-shadow:0 0 0 6px #e74c3c00}
-}
+    .top,
+    .hero,
+    .card-head,
+    .card-top,
+    .actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
 
-.toast{
-  position:fixed;
-  bottom:25px;
-  left:50%;
-  transform:translateX(-50%);
-  background:var(--ink);
-  color:var(--bg);
-  padding:11px 18px;
-  border-radius:10px;
-  font-size:12px;
-  opacity:0;
-  pointer-events:none;
-  transition:opacity .2s;
-  z-index:99;
-}
-.toast.show{opacity:1}
+    .top {
+      margin-bottom: 36px
+    }
 
-@media(max-width:650px){
-  .shell{padding:18px 14px}
-  .top{align-items:flex-start;flex-direction:column;margin-bottom:24px}
-  .actions{justify-content:flex-start}
-  .hero{align-items:flex-start;flex-direction:column}
-  .grid{grid-template-columns:1fr}
-}
-</style>
+    .brand {
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: 12px
+    }
+
+    .mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 13px;
+      background: var(--accent);
+      color: white;
+      display: grid;
+      place-items: center;
+      font-size: 20px;
+    }
+
+    .actions {
+      justify-content: flex-end;
+      flex-wrap: wrap
+    }
+
+    .btn,
+    select.btn {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      border-radius: 11px;
+      padding: 10px 13px;
+      font: 700 12px Inter;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover,
+    select.btn:hover {
+      border-color: var(--accent);
+      color: var(--accent)
+    }
+
+    .primary {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent)
+    }
+
+    .primary:hover {
+      opacity: .92;
+      color: white
+    }
+
+    .language {
+      min-width: 68px;
+      font-weight: 700
+    }
+
+    .eyebrow,
+    .label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .15em;
+      color: var(--muted);
+      font-weight: 800
+    }
+
+    .hero {
+      align-items: end;
+      margin-bottom: 25px
+    }
+
+    .hero h1 {
+      font-size: clamp(27px, 3.3vw, 40px);
+      letter-spacing: -.055em;
+      margin: 8px 0
+    }
+
+    .hero p {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 0
+    }
+
+    .summary {
+      border: 1px solid var(--line);
+      padding: 9px 14px;
+      border-radius: 30px;
+      background: var(--panel);
+      font-size: 11px;
+      color: var(--muted);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #78ad98
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 14px
+    }
+
+    /* Dynamic Card Borders (Green vs Red/Warning) */
+    .card {
+      border: 2px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      min-width: 0;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    .card.card-healthy {
+      border-color: #1db374 !important;
+      box-shadow: 0 0 0 1px #1db37444, 0 12px 38px #1db37418;
+    }
+
+    .card.card-red {
+      border-color: #e74c3c !important;
+      box-shadow: 0 0 0 1px #e74c3c55, 0 12px 38px #e74c3c22;
+      animation: cardPulseRed 2s infinite;
+    }
+
+    .card.card-offline {
+      border-color: #e74c3c !important;
+      box-shadow: 0 0 0 1px #e74c3c33;
+    }
+
+    [data-theme=dark] .card.card-healthy {
+      border-color: #2ecc71 !important;
+      box-shadow: 0 0 0 1px #2ecc7155, 0 12px 38px #2ecc7122;
+    }
+
+    [data-theme=dark] .card.card-red {
+      border-color: #e74c3c !important;
+      box-shadow: 0 0 0 1px #e74c3c66, 0 12px 38px #e74c3c33;
+      animation: cardPulseRed 2s infinite;
+    }
+
+    @keyframes cardPulseRed {
+
+      0%,
+      100% {
+        border-color: #e74c3c
+      }
+
+      50% {
+        border-color: #ff7675
+      }
+    }
+
+    .card:hover {
+      filter: brightness(0.98)
+    }
+
+    .card-top {
+      align-items: flex-start
+    }
+
+    .name {
+      font-size: 15px;
+      font-weight: 800
+    }
+
+    .meta {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 5px
+    }
+
+    .state {
+      font-size: 9px;
+      padding: 6px 9px;
+      border-radius: 20px;
+      background: var(--panel2);
+      color: var(--muted);
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .state.online {
+      background: var(--accent-soft);
+      color: var(--accent)
+    }
+
+    .state.offline {
+      background: #fdf2e9;
+      color: var(--warn)
+    }
+
+    .state.red {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border: 1px solid #e74c3c44
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+      margin-top: 17px
+    }
+
+    .metric {
+      background: var(--panel2);
+      border-radius: 11px;
+      padding: 12px;
+      border: 1px solid var(--line);
+    }
+
+    .metric.span2 {
+      grid-column: span 2
+    }
+
+    .metric .label {
+      font-size: 9px;
+      letter-spacing: .09em
+    }
+
+    .value {
+      font: 500 23px ui-monospace, monospace;
+      margin-top: 8px;
+      letter-spacing: -.04em;
+    }
+
+    .value.val-red {
+      color: #e74c3c !important;
+      font-weight: 700
+    }
+
+    .unit {
+      font: 500 11px Inter;
+      color: var(--muted);
+      margin-left: 4px
+    }
+
+    .foot {
+      border-top: 1px solid var(--line);
+      margin-top: 14px;
+      padding-top: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      color: var(--muted);
+      gap: 8px;
+    }
+
+    .foot-info {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap
+    }
+
+    .ip {
+      font: 11px ui-monospace, monospace;
+      color: var(--ink);
+      font-weight: 600
+    }
+
+    .remove {
+      border: 0;
+      background: none;
+      color: var(--muted);
+      cursor: pointer;
+      font: 700 10px Inter;
+      padding: 4px 6px;
+      border-radius: 6px;
+    }
+
+    .remove:hover {
+      color: #b33939;
+      background: var(--panel2)
+    }
+
+    .empty {
+      grid-column: 1/-1;
+      text-align: center;
+      padding: 50px 20px;
+      color: var(--muted);
+      border: 1px dashed var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+    }
+
+    /* Modals */
+    dialog {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 24px;
+      background: var(--panel);
+      color: var(--ink);
+      width: min(440px, calc(100% - 24px));
+      box-shadow: 0 20px 80px #0003;
+    }
+
+    dialog::backdrop {
+      background: #10202366
+    }
+
+    dialog h2 {
+      font-size: 18px;
+      margin: 0 0 16px
+    }
+
+    form {
+      display: grid;
+      gap: 12px
+    }
+
+    form label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      display: grid;
+      gap: 6px
+    }
+
+    input,
+    select {
+      background: var(--panel2);
+      color: var(--ink);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 10px 11px;
+      font: 12px Inter;
+      outline: none;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--accent)
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 8px
+    }
+
+    .note {
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.55;
+      margin: 18px 0 0
+    }
+
+    .hidden {
+      display: none !important
+    }
+
+    /* Alarm Modal Popup */
+    .alarm-dialog {
+      border: 2px solid #e74c3c;
+      border-radius: 18px;
+      background: var(--panel);
+      color: var(--ink);
+      width: min(520px, calc(100% - 24px));
+      box-shadow: 0 0 40px #e74c3c55, 0 20px 80px #0006;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .alarm-dialog::backdrop {
+      background: #1a050588;
+      backdrop-filter: blur(2px);
+    }
+
+    .alarm-head {
+      background: #e74c3c;
+      color: white;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 800;
+      font-size: 15px;
+      letter-spacing: .05em;
+    }
+
+    .alarm-badge {
+      background: rgba(0, 0, 0, 0.25);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+
+    .alarm-body {
+      padding: 20px;
+      display: grid;
+      gap: 12px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+
+    .alarm-item {
+      border: 1px solid #e74c3c44;
+      background: var(--danger-soft);
+      padding: 12px 14px;
+      border-radius: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .alarm-item-icon {
+      font-size: 22px;
+      line-height: 1
+    }
+
+    .alarm-item-name {
+      font-weight: 800;
+      font-size: 14px
+    }
+
+    .alarm-item-meta {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px
+    }
+
+    .alarm-reasons {
+      margin: 6px 0 0;
+      padding-left: 18px;
+      font-size: 12px;
+      color: #c0392b;
+      line-height: 1.5;
+    }
+
+    [data-theme=dark] .alarm-reasons {
+      color: #f5b7b1
+    }
+
+    .alarm-foot {
+      padding: 14px 20px;
+      border-top: 1px solid var(--line);
+      display: flex;
+      justify-content: flex-end;
+      background: var(--panel2);
+    }
+
+    .alarm-pill {
+      background: #e74c3c !important;
+      color: white !important;
+      border-color: #c0392b !important;
+      animation: alarmPulse 1.4s infinite;
+      font-weight: 800;
+    }
+
+    .alarm-pill:hover {
+      background: #c0392b !important
+    }
+
+    @keyframes alarmPulse {
+
+      0%,
+      100% {
+        box-shadow: 0 0 0 0 #e74c3c66
+      }
+
+      50% {
+        box-shadow: 0 0 0 6px #e74c3c00
+      }
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 25px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--ink);
+      color: var(--bg);
+      padding: 11px 18px;
+      border-radius: 10px;
+      font-size: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s;
+      z-index: 99;
+    }
+
+    .toast.show {
+      opacity: 1
+    }
+
+    @media(max-width:650px) {
+      .shell {
+        padding: 18px 14px
+      }
+
+      .top {
+        align-items: flex-start;
+        flex-direction: column;
+        margin-bottom: 24px
+      }
+
+      .actions {
+        justify-content: flex-start
+      }
+
+      .hero {
+        align-items: flex-start;
+        flex-direction: column
+      }
+
+      .grid {
+        grid-template-columns: 1fr
+      }
+    }
+  </style>
 </head>
+
 <body>
-<main class="shell">
-  <header class="top">
-    <div class="brand">
-      <span class="mark">ϟ</span>
-      <div>
-        <div class="eyebrow" id="brandSubtitle">Monitor de energía</div>
-        <div>Riello UPS</div>
+  <main class="shell">
+    <header class="top">
+      <div class="brand">
+        <span class="mark">ϟ</span>
+        <div>
+          <div class="eyebrow" id="brandSubtitle">Monitor de energía</div>
+          <div>Riello UPS</div>
+        </div>
       </div>
+      <nav class="actions">
+        <button class="btn alarm-pill hidden" id="alarmPillBtn">🚨 <span id="alarmPillText">Alarma</span></button>
+        <select id="language" class="btn language" aria-label="Language">
+          <option value="es">ES</option>
+          <option value="en">EN</option>
+          <option value="de">DE</option>
+        </select>
+        <a class="btn" href="/" id="backBtn">Janitza dashboard</a>
+        <button class="btn" id="importBtn">Importar CSV</button>
+        <a class="btn" id="exportBtn" href="/api/ups/export">Exportar CSV</a>
+        <button class="btn" id="themeBtn">Tema</button>
+        <button class="btn primary" id="addBtn">+ Añadir UPS</button>
+        <input id="file" type="file" accept=".csv,text/csv" class="hidden">
+      </nav>
+    </header>
+
+    <section class="hero">
+      <div>
+        <div class="eyebrow" id="heroEyebrow">NetMan 204 · 208 · 208c</div>
+        <h1 id="heroTitle">Estado de los UPS</h1>
+        <p id="heroSubtitle">Batería, autonomía y condiciones ambientales en tiempo real por Modbus TCP.</p>
+      </div>
+      <div class="summary" id="summary">
+        <span class="dot"></span>
+        <span id="summaryText">0 UPS configurados</span>
+      </div>
+    </section>
+
+    <section class="grid" id="cards"></section>
+
+    <p class="note" id="noteText">Lecturas leídas directamente de cada tarjeta NetMan por Modbus TCP (puerto 502). Los
+      sensores ambientales externos dependen del accesorio instalado en la tarjeta.</p>
+  </main>
+
+  <!-- Add UPS Dialog -->
+  <dialog id="dlg">
+    <h2 id="dialogTitle">Añadir UPS Riello</h2>
+    <form id="form">
+      <label><span id="dialogNameLabel">Nombre</span>
+        <input name="name" required placeholder="UPS sala de servidores" maxlength="80">
+      </label>
+      <label><span id="dialogIpLabel">Dirección IP de NetMan</span>
+        <input name="ip" required placeholder="192.168.1.50" inputmode="decimal" pattern="(?:\d{1,3}\.){3}\d{1,3}">
+      </label>
+      <label><span id="dialogCardLabel">Tarjeta de red</span>
+        <select name="card">
+          <option>NetMan 204</option>
+          <option selected>NetMan 208</option>
+          <option>NetMan 208c</option>
+        </select>
+      </label>
+      <div class="form-actions">
+        <button type="button" class="btn" id="cancelBtn">Cancelar</button>
+        <button class="btn primary" type="submit" id="saveBtn">Guardar UPS</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Alarm Popup Dialog -->
+  <dialog id="alarmDialog" class="alarm-dialog">
+    <div class="alarm-head">
+      <span id="alarmHeadText">🚨 ALARMA DE UPS</span>
+      <span class="alarm-badge" id="alarmBadge">Activa</span>
     </div>
-    <nav class="actions">
-      <button class="btn alarm-pill hidden" id="alarmPillBtn">🚨 <span id="alarmPillText">Alarma</span></button>
-      <select id="language" class="btn language" aria-label="Language">
-        <option value="es">ES</option>
-        <option value="en">EN</option>
-        <option value="de">DE</option>
-      </select>
-      <a class="btn" href="/" id="backBtn">Janitza dashboard</a>
-      <button class="btn" id="importBtn">Importar CSV</button>
-      <a class="btn" id="exportBtn" href="/api/ups/export">Exportar CSV</a>
-      <button class="btn" id="themeBtn">Tema</button>
-      <button class="btn primary" id="addBtn">+ Añadir UPS</button>
-      <input id="file" type="file" accept=".csv,text/csv" class="hidden">
-    </nav>
-  </header>
-
-  <section class="hero">
-    <div>
-      <div class="eyebrow" id="heroEyebrow">NetMan 204 · 208 · 208c</div>
-      <h1 id="heroTitle">Estado de los UPS</h1>
-      <p id="heroSubtitle">Batería, autonomía y condiciones ambientales en tiempo real por Modbus TCP.</p>
+    <div class="alarm-body" id="alarmBody"></div>
+    <div class="alarm-foot">
+      <button class="btn primary" id="silenceAlarmBtn" style="background:#e74c3c;border-color:#c0392b">Aceptar /
+        Silenciar</button>
     </div>
-    <div class="summary" id="summary">
-      <span class="dot"></span>
-      <span id="summaryText">0 UPS configurados</span>
-    </div>
-  </section>
+  </dialog>
 
-  <section class="grid" id="cards"></section>
+  <div class="toast" id="toast"></div>
 
-  <p class="note" id="noteText">Lecturas leídas directamente de cada tarjeta NetMan por Modbus TCP (puerto 502). Los sensores ambientales externos dependen del accesorio instalado en la tarjeta.</p>
-</main>
+  <script>
+    (() => {
+      'use strict';
+      const $ = s => document.querySelector(s);
+      const STORAGE_KEY = 'riello-ups-inventory-v1';
+      let items = [];
+      let pollInterval = null;
 
-<!-- Add UPS Dialog -->
-<dialog id="dlg">
-  <h2 id="dialogTitle">Añadir UPS Riello</h2>
-  <form id="form">
-    <label><span id="dialogNameLabel">Nombre</span>
-      <input name="name" required placeholder="UPS sala de servidores" maxlength="80">
-    </label>
-    <label><span id="dialogIpLabel">Dirección IP de NetMan</span>
-      <input name="ip" required placeholder="192.168.1.50" inputmode="decimal" pattern="(?:\d{1,3}\.){3}\d{1,3}">
-    </label>
-    <label><span id="dialogCardLabel">Tarjeta de red</span>
-      <select name="card">
-        <option>NetMan 204</option>
-        <option selected>NetMan 208</option>
-        <option>NetMan 208c</option>
-      </select>
-    </label>
-    <div class="form-actions">
-      <button type="button" class="btn" id="cancelBtn">Cancelar</button>
-      <button class="btn primary" type="submit" id="saveBtn">Guardar UPS</button>
-    </div>
-  </form>
-</dialog>
+      // Active alarms tracking
+      const dismissedAlarms = new Set();
+      let currentActiveAlarms = [];
 
-<!-- Alarm Popup Dialog -->
-<dialog id="alarmDialog" class="alarm-dialog">
-  <div class="alarm-head">
-    <span id="alarmHeadText">🚨 ALARMA DE UPS</span>
-    <span class="alarm-badge" id="alarmBadge">Activa</span>
-  </div>
-  <div class="alarm-body" id="alarmBody"></div>
-  <div class="alarm-foot">
-    <button class="btn primary" id="silenceAlarmBtn" style="background:#e74c3c;border-color:#c0392b">Aceptar / Silenciar</button>
-  </div>
-</dialog>
+      const I18N = {
+        es: {
+          brandSubtitle: 'Monitor de energía',
+          backBtn: 'Janitza dashboard',
+          importBtn: 'Importar CSV',
+          exportBtn: 'Exportar CSV',
+          themeBtn: 'Tema',
+          addBtn: '+ Añadir UPS',
+          heroEyebrow: 'NetMan 204 · 208 · 208c',
+          heroTitle: 'Estado de los UPS',
+          heroSubtitle: 'Batería, autonomía y condiciones ambientales en tiempo real por Modbus TCP.',
+          summaryText: (total, online) => `${total} ${total === 1 ? 'UPS configurado' : 'UPS configurados'} · ${online} en línea`,
+          empty: 'Aún no hay UPS. Añade una tarjeta NetMan con su dirección IP o importa un inventario CSV.',
+          battery: 'Batería',
+          autonomy: 'Autonomía',
+          internalTemp: 'Temp. interna',
+          externalTemp: 'Temp. externa',
+          humidity: 'Humedad externa',
+          connected: 'Conectado',
+          offline: 'Sin conexión',
+          pending: 'Lectura pendiente',
+          stateRed: 'Alarma',
+          remove: 'Eliminar',
+          removeConfirm: name => `¿Eliminar ${name}?`,
+          noteText: 'Lecturas leídas directamente de cada tarjeta NetMan por Modbus TCP (puerto 502). Los sensores ambientales externos dependen del accesorio instalado en la tarjeta.',
+          dialogTitle: 'Añadir UPS Riello',
+          dialogNameLabel: 'Nombre',
+          dialogIpLabel: 'Dirección IP de NetMan',
+          dialogCardLabel: 'Tarjeta de red',
+          cancelBtn: 'Cancelar',
+          saveBtn: 'Guardar UPS',
+          toastSaved: 'Inventario guardado en el servidor.',
+          toastImported: n => `Se importaron ${n} UPS correctamente.`,
+          toastNoExport: 'No hay equipos configurados para exportar.',
+          noProbe: 'Sonda ambiental no detectada en la tarjeta (o no conectada)',
+          optimalState: 'Condiciones óptimas: Temp < 25°C, Autonomía > 30 min, Batería > 30%',
+          warningState: 'Alerta: valores fuera de rango o fallo de conexión',
+          alarmHeadText: '🚨 ALARMA CRÍTICA DE UPS',
+          alarmBadge: 'Activa',
+          silenceAlarmBtn: 'Aceptar / Silenciar alarma',
+          alarmLostConnection: 'Pérdida de conexión Modbus TCP',
+          alarmBatLow: bat => `Batería baja: ${bat}% (requerido > 30%)`,
+          alarmAutLow: aut => `Autonomía baja: ${aut} min (requerido > 30 min)`,
+          alarmIntTempHigh: temp => `Temperatura interna alta: ${temp}°C (requerido < 25°C)`,
+          alarmExtTempHigh: temp => `Temperatura externa alta: ${temp}°C (requerido < 25°C)`,
+          alarmPillText: n => `${n} ${n === 1 ? 'alarma activa' : 'alarmas activas'}`,
+          errName: 'El nombre no puede estar vacío.',
+          errIp: 'Introduce una dirección IPv4 válida.',
+          errDuplicate: name => `Ya existe un equipo con el nombre "${name}".`,
+          errCsvEmpty: 'El archivo CSV está vacío.',
+          errCsvHeaders: 'El CSV debe incluir cabeceras de nombre ("name") e IP ("ip").',
+          errCsvNoValid: 'No se encontraron registros de UPS válidos en el CSV.'
+        },
+        en: {
+          brandSubtitle: 'Power monitor',
+          backBtn: 'Janitza dashboard',
+          importBtn: 'Import CSV',
+          exportBtn: 'Export CSV',
+          themeBtn: 'Theme',
+          addBtn: '+ Add UPS',
+          heroEyebrow: 'NetMan 204 · 208 · 208c',
+          heroTitle: 'UPS Status',
+          heroSubtitle: 'Real-time battery, runtime and environmental monitoring via Modbus TCP.',
+          summaryText: (total, online) => `${total} ${total === 1 ? 'UPS configured' : 'UPS configured'} · ${online} online`,
+          empty: 'No UPS devices yet. Add a NetMan card with its IP address or import a CSV inventory.',
+          battery: 'Battery',
+          autonomy: 'Runtime',
+          internalTemp: 'Internal temp.',
+          externalTemp: 'External temp.',
+          humidity: 'External humidity',
+          connected: 'Online',
+          offline: 'No connection',
+          pending: 'Pending reading',
+          stateRed: 'Alarm',
+          remove: 'Delete',
+          removeConfirm: name => `Delete ${name}?`,
+          noteText: 'Live readings retrieved directly from each NetMan card via Modbus TCP (port 502). External environmental sensors depend on the accessory probe installed on the card.',
+          dialogTitle: 'Add Riello UPS',
+          dialogNameLabel: 'Name',
+          dialogIpLabel: 'NetMan IP address',
+          dialogCardLabel: 'Network card',
+          cancelBtn: 'Cancel',
+          saveBtn: 'Save UPS',
+          toastSaved: 'Inventory saved to server.',
+          toastImported: n => `Successfully imported ${n} UPS devices.`,
+          toastNoExport: 'No configured devices to export.',
+          noProbe: 'Environmental probe not detected on card (or not connected)',
+          optimalState: 'Optimal conditions: Temp < 25°C, Runtime > 30 min, Battery > 30%',
+          warningState: 'Alert: values outside optimal range or connection loss',
+          alarmHeadText: '🚨 CRITICAL UPS ALARM',
+          alarmBadge: 'Active',
+          silenceAlarmBtn: 'Acknowledge / Silence alarm',
+          alarmLostConnection: 'Lost Modbus TCP connection',
+          alarmBatLow: bat => `Low battery: ${bat}% (required > 30%)`,
+          alarmAutLow: aut => `Low runtime: ${aut} min (required > 30 min)`,
+          alarmIntTempHigh: temp => `High internal temperature: ${temp}°C (required < 25°C)`,
+          alarmExtTempHigh: temp => `High external temperature: ${temp}°C (required < 25°C)`,
+          alarmPillText: n => `${n} active ${n === 1 ? 'alarm' : 'alarms'}`,
+          errName: 'Name cannot be empty.',
+          errIp: 'Please enter a valid IPv4 address.',
+          errDuplicate: name => `A device named "${name}" already exists.`,
+          errCsvEmpty: 'The CSV file is empty.',
+          errCsvHeaders: 'The CSV must contain "name" and "ip" headers.',
+          errCsvNoValid: 'No valid UPS records found in the CSV.'
+        },
+        de: {
+          brandSubtitle: 'Energieüberwachung',
+          backBtn: 'Janitza Dashboard',
+          importBtn: 'CSV importieren',
+          exportBtn: 'CSV exportieren',
+          themeBtn: 'Darstellung',
+          addBtn: '+ USV hinzufügen',
+          heroEyebrow: 'NetMan 204 · 208 · 208c',
+          heroTitle: 'USV-Status',
+          heroSubtitle: 'Echtzeit-Batterie, Autonomie und Umgebungsüberwachung über Modbus TCP.',
+          summaryText: (total, online) => `${total} ${total === 1 ? 'USV konfiguriert' : 'USV konfiguriert'} · ${online} verbunden`,
+          empty: 'Noch keine USV konfiguriert. Fügen Sie eine NetMan-Karte mit IP-Adresse hinzu oder importieren Sie ein CSV-Inventar.',
+          battery: 'Batterie',
+          autonomy: 'Autonomie',
+          internalTemp: 'Interne Temp.',
+          externalTemp: 'Externe Temp.',
+          humidity: 'Externe Feuchtigkeit',
+          connected: 'Verbunden',
+          offline: 'Keine Verbindung',
+          pending: 'Ausstehend',
+          stateRed: 'Alarm',
+          remove: 'Löschen',
+          removeConfirm: name => `${name} wirklich löschen?`,
+          noteText: 'Live-Messwerte direkt von jeder NetMan-Karte über Modbus TCP (Port 502). Externe Umgebungssensoren hängen vom an der Karte angeschlossenen Sensor ab.',
+          dialogTitle: 'Riello USV hinzufügen',
+          dialogNameLabel: 'Name',
+          dialogIpLabel: 'NetMan-IP-Adresse',
+          dialogCardLabel: 'Netzwerkkarte',
+          cancelBtn: 'Abbrechen',
+          saveBtn: 'USV speichern',
+          toastSaved: 'Inventar auf dem Server gespeichert.',
+          toastImported: n => `${n} USV erfolgreich importiert.`,
+          noExportToast: 'Keine konfigurierten Geräte zum Exportieren.',
+          noProbe: 'Kein Umgebungssensor an der Karte erkannt (oder nicht angeschlossen)',
+          optimalState: 'Optimaler Zustand: Temp < 25°C, Autonomie > 30 min, Batterie > 30%',
+          warningState: 'Warnung: Werte außerhalb des optimalen Bereichs oder Verbindungsverlust',
+          alarmHeadText: '🚨 KRITISCHER USV-ALARM',
+          alarmBadge: 'Aktiv',
+          silenceAlarmBtn: 'Quittieren / Stummschalten',
+          alarmLostConnection: 'Modbus-TCP-Verbindung verloren',
+          alarmBatLow: bat => `Niedriger Batteriestand: ${bat}% (erforderlich > 30%)`,
+          alarmAutLow: aut => `Geringe Autonomie: ${aut} min (erforderlich > 30 min)`,
+          alarmIntTempHigh: temp => `Hohe interne Temperatur: ${temp}°C (erforderlich < 25°C)`,
+          alarmExtTempHigh: temp => `Hohe externe Temperatur: ${temp}°C (erforderlich < 25°C)`,
+          alarmPillText: n => `${n} aktive ${n === 1 ? 'Alarm' : 'Alarme'}`,
+          errName: 'Name darf nicht leer sein.',
+          errIp: 'Bitte eine gültige IPv4-Adresse eingeben.',
+          errDuplicate: name => `Ein Gerät namens "${name}" existiert bereits.`,
+          errCsvEmpty: 'Die CSV-Datei ist leer.',
+          errCsvHeaders: 'Die CSV muss Spalten für "name" und "ip" enthalten.',
+          errCsvNoValid: 'Keine gültigen USV-Einträge in der CSV gefunden.'
+        }
+      };
 
-<div class="toast" id="toast"></div>
+      let lang = localStorage.getItem('janitza-language') || 'es';
+      if (!I18N[lang]) lang = 'es';
+      $('#language').value = lang;
 
-<script>
-(()=>{
-  'use strict';
-  const $=s=>document.querySelector(s);
-  const STORAGE_KEY='riello-ups-inventory-v1';
-  let items=[];
-  let pollInterval=null;
-
-  // Active alarms tracking
-  const dismissedAlarms=new Set();
-  let currentActiveAlarms=[];
-
-  const I18N = {
-    es: {
-      brandSubtitle: 'Monitor de energía',
-      backBtn: 'Janitza dashboard',
-      importBtn: 'Importar CSV',
-      exportBtn: 'Exportar CSV',
-      themeBtn: 'Tema',
-      addBtn: '+ Añadir UPS',
-      heroEyebrow: 'NetMan 204 · 208 · 208c',
-      heroTitle: 'Estado de los UPS',
-      heroSubtitle: 'Batería, autonomía y condiciones ambientales en tiempo real por Modbus TCP.',
-      summaryText: (total, online) => `${total} ${total===1?'UPS configurado':'UPS configurados'} · ${online} en línea`,
-      empty: 'Aún no hay UPS. Añade una tarjeta NetMan con su dirección IP o importa un inventario CSV.',
-      battery: 'Batería',
-      autonomy: 'Autonomía',
-      internalTemp: 'Temp. interna',
-      externalTemp: 'Temp. externa',
-      humidity: 'Humedad externa',
-      connected: 'Conectado',
-      offline: 'Sin conexión',
-      pending: 'Lectura pendiente',
-      stateRed: 'Alarma',
-      remove: 'Eliminar',
-      removeConfirm: name => `¿Eliminar ${name}?`,
-      noteText: 'Lecturas leídas directamente de cada tarjeta NetMan por Modbus TCP (puerto 502). Los sensores ambientales externos dependen del accesorio instalado en la tarjeta.',
-      dialogTitle: 'Añadir UPS Riello',
-      dialogNameLabel: 'Nombre',
-      dialogIpLabel: 'Dirección IP de NetMan',
-      dialogCardLabel: 'Tarjeta de red',
-      cancelBtn: 'Cancelar',
-      saveBtn: 'Guardar UPS',
-      toastSaved: 'Inventario guardado en el servidor.',
-      toastImported: n => `Se importaron ${n} UPS correctamente.`,
-      toastNoExport: 'No hay equipos configurados para exportar.',
-      noProbe: 'Sonda ambiental no detectada en la tarjeta (o no conectada)',
-      optimalState: 'Condiciones óptimas: Temp < 25°C, Autonomía > 30 min, Batería > 30%',
-      warningState: 'Alerta: valores fuera de rango o fallo de conexión',
-      alarmHeadText: '🚨 ALARMA CRÍTICA DE UPS',
-      alarmBadge: 'Activa',
-      silenceAlarmBtn: 'Aceptar / Silenciar alarma',
-      alarmLostConnection: 'Pérdida de conexión Modbus TCP',
-      alarmBatLow: bat => `Batería baja: ${bat}% (requerido > 30%)`,
-      alarmAutLow: aut => `Autonomía baja: ${aut} min (requerido > 30 min)`,
-      alarmIntTempHigh: temp => `Temperatura interna alta: ${temp}°C (requerido < 25°C)`,
-      alarmExtTempHigh: temp => `Temperatura externa alta: ${temp}°C (requerido < 25°C)`,
-      alarmPillText: n => `${n} ${n===1?'alarma activa':'alarmas activas'}`,
-      errName: 'El nombre no puede estar vacío.',
-      errIp: 'Introduce una dirección IPv4 válida.',
-      errDuplicate: name => `Ya existe un equipo con el nombre "${name}".`,
-      errCsvEmpty: 'El archivo CSV está vacío.',
-      errCsvHeaders: 'El CSV debe incluir cabeceras de nombre ("name") e IP ("ip").',
-      errCsvNoValid: 'No se encontraron registros de UPS válidos en el CSV.'
-    },
-    en: {
-      brandSubtitle: 'Power monitor',
-      backBtn: 'Janitza dashboard',
-      importBtn: 'Import CSV',
-      exportBtn: 'Export CSV',
-      themeBtn: 'Theme',
-      addBtn: '+ Add UPS',
-      heroEyebrow: 'NetMan 204 · 208 · 208c',
-      heroTitle: 'UPS Status',
-      heroSubtitle: 'Real-time battery, runtime and environmental monitoring via Modbus TCP.',
-      summaryText: (total, online) => `${total} ${total===1?'UPS configured':'UPS configured'} · ${online} online`,
-      empty: 'No UPS devices yet. Add a NetMan card with its IP address or import a CSV inventory.',
-      battery: 'Battery',
-      autonomy: 'Runtime',
-      internalTemp: 'Internal temp.',
-      externalTemp: 'External temp.',
-      humidity: 'External humidity',
-      connected: 'Online',
-      offline: 'No connection',
-      pending: 'Pending reading',
-      stateRed: 'Alarm',
-      remove: 'Delete',
-      removeConfirm: name => `Delete ${name}?`,
-      noteText: 'Live readings retrieved directly from each NetMan card via Modbus TCP (port 502). External environmental sensors depend on the accessory probe installed on the card.',
-      dialogTitle: 'Add Riello UPS',
-      dialogNameLabel: 'Name',
-      dialogIpLabel: 'NetMan IP address',
-      dialogCardLabel: 'Network card',
-      cancelBtn: 'Cancel',
-      saveBtn: 'Save UPS',
-      toastSaved: 'Inventory saved to server.',
-      toastImported: n => `Successfully imported ${n} UPS devices.`,
-      toastNoExport: 'No configured devices to export.',
-      noProbe: 'Environmental probe not detected on card (or not connected)',
-      optimalState: 'Optimal conditions: Temp < 25°C, Runtime > 30 min, Battery > 30%',
-      warningState: 'Alert: values outside optimal range or connection loss',
-      alarmHeadText: '🚨 CRITICAL UPS ALARM',
-      alarmBadge: 'Active',
-      silenceAlarmBtn: 'Acknowledge / Silence alarm',
-      alarmLostConnection: 'Lost Modbus TCP connection',
-      alarmBatLow: bat => `Low battery: ${bat}% (required > 30%)`,
-      alarmAutLow: aut => `Low runtime: ${aut} min (required > 30 min)`,
-      alarmIntTempHigh: temp => `High internal temperature: ${temp}°C (required < 25°C)`,
-      alarmExtTempHigh: temp => `High external temperature: ${temp}°C (required < 25°C)`,
-      alarmPillText: n => `${n} active ${n===1?'alarm':'alarms'}`,
-      errName: 'Name cannot be empty.',
-      errIp: 'Please enter a valid IPv4 address.',
-      errDuplicate: name => `A device named "${name}" already exists.`,
-      errCsvEmpty: 'The CSV file is empty.',
-      errCsvHeaders: 'The CSV must contain "name" and "ip" headers.',
-      errCsvNoValid: 'No valid UPS records found in the CSV.'
-    },
-    de: {
-      brandSubtitle: 'Energieüberwachung',
-      backBtn: 'Janitza Dashboard',
-      importBtn: 'CSV importieren',
-      exportBtn: 'CSV exportieren',
-      themeBtn: 'Darstellung',
-      addBtn: '+ USV hinzufügen',
-      heroEyebrow: 'NetMan 204 · 208 · 208c',
-      heroTitle: 'USV-Status',
-      heroSubtitle: 'Echtzeit-Batterie, Autonomie und Umgebungsüberwachung über Modbus TCP.',
-      summaryText: (total, online) => `${total} ${total===1?'USV konfiguriert':'USV konfiguriert'} · ${online} verbunden`,
-      empty: 'Noch keine USV konfiguriert. Fügen Sie eine NetMan-Karte mit IP-Adresse hinzu oder importieren Sie ein CSV-Inventar.',
-      battery: 'Batterie',
-      autonomy: 'Autonomie',
-      internalTemp: 'Interne Temp.',
-      externalTemp: 'Externe Temp.',
-      humidity: 'Externe Feuchtigkeit',
-      connected: 'Verbunden',
-      offline: 'Keine Verbindung',
-      pending: 'Ausstehend',
-      stateRed: 'Alarm',
-      remove: 'Löschen',
-      removeConfirm: name => `${name} wirklich löschen?`,
-      noteText: 'Live-Messwerte direkt von jeder NetMan-Karte über Modbus TCP (Port 502). Externe Umgebungssensoren hängen vom an der Karte angeschlossenen Sensor ab.',
-      dialogTitle: 'Riello USV hinzufügen',
-      dialogNameLabel: 'Name',
-      dialogIpLabel: 'NetMan-IP-Adresse',
-      dialogCardLabel: 'Netzwerkkarte',
-      cancelBtn: 'Abbrechen',
-      saveBtn: 'USV speichern',
-      toastSaved: 'Inventar auf dem Server gespeichert.',
-      toastImported: n => `${n} USV erfolgreich importiert.`,
-      noExportToast: 'Keine konfigurierten Geräte zum Exportieren.',
-      noProbe: 'Kein Umgebungssensor an der Karte erkannt (oder nicht angeschlossen)',
-      optimalState: 'Optimaler Zustand: Temp < 25°C, Autonomie > 30 min, Batterie > 30%',
-      warningState: 'Warnung: Werte außerhalb des optimalen Bereichs oder Verbindungsverlust',
-      alarmHeadText: '🚨 KRITISCHER USV-ALARM',
-      alarmBadge: 'Aktiv',
-      silenceAlarmBtn: 'Quittieren / Stummschalten',
-      alarmLostConnection: 'Modbus-TCP-Verbindung verloren',
-      alarmBatLow: bat => `Niedriger Batteriestand: ${bat}% (erforderlich > 30%)`,
-      alarmAutLow: aut => `Geringe Autonomie: ${aut} min (erforderlich > 30 min)`,
-      alarmIntTempHigh: temp => `Hohe interne Temperatur: ${temp}°C (erforderlich < 25°C)`,
-      alarmExtTempHigh: temp => `Hohe externe Temperatur: ${temp}°C (erforderlich < 25°C)`,
-      alarmPillText: n => `${n} aktive ${n===1?'Alarm':'Alarme'}`,
-      errName: 'Name darf nicht leer sein.',
-      errIp: 'Bitte eine gültige IPv4-Adresse eingeben.',
-      errDuplicate: name => `Ein Gerät namens "${name}" existiert bereits.`,
-      errCsvEmpty: 'Die CSV-Datei ist leer.',
-      errCsvHeaders: 'Die CSV muss Spalten für "name" und "ip" enthalten.',
-      errCsvNoValid: 'Keine gültigen USV-Einträge in der CSV gefunden.'
-    }
-  };
-
-  let lang = localStorage.getItem('janitza-language') || 'es';
-  if(!I18N[lang]) lang = 'es';
-  $('#language').value = lang;
-
-  function t(k, ...args){
-    const dict = I18N[lang] || I18N.es;
-    const v = dict[k] || I18N.es[k];
-    if(typeof v === 'function') return v(...args);
-    return v ?? k;
-  }
-
-  function applyLanguage(){
-    document.documentElement.lang = lang;
-    const ids = [
-      'brandSubtitle','backBtn','importBtn','exportBtn','themeBtn',
-      'addBtn','heroEyebrow','heroTitle','heroSubtitle','noteText',
-      'dialogTitle','dialogNameLabel','dialogIpLabel','dialogCardLabel',
-      'cancelBtn','saveBtn','alarmHeadText','alarmBadge','silenceAlarmBtn'
-    ];
-    ids.forEach(id=>{
-      const el=$('#'+id);
-      if(el) el.textContent = t(id);
-    });
-    updateAlarmPill();
-    render();
-  }
-
-  $('#language').onchange=()=>{
-    lang = $('#language').value;
-    localStorage.setItem('janitza-language', lang);
-    applyLanguage();
-  };
-
-  // Theme support
-  const currentTheme=localStorage.getItem('janitza-theme')||'light';
-  document.documentElement.dataset.theme=currentTheme;
-  $('#themeBtn').onclick=()=>{
-    const next=document.documentElement.dataset.theme==='dark'?'light':'dark';
-    document.documentElement.dataset.theme=next;
-    localStorage.setItem('janitza-theme',next);
-  };
-
-  function toast(msg){
-    const el=$('#toast');
-    el.textContent=msg;
-    el.classList.add('show');
-    setTimeout(()=>el.classList.remove('show'),4000);
-  }
-
-  // Audio synthesizer alarm beep (Web Audio API)
-  function playAlarmBeep(){
-    try{
-      const ctx=new (window.AudioContext||window.webkitAudioContext)();
-      const osc=ctx.createOscillator();
-      const gain=ctx.createGain();
-      osc.type='sawtooth';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime + 0.15);
-      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.3);
-      gain.gain.setValueAtTime(0.12, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.5);
-    }catch(e){}
-  }
-
-  const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-
-  function getAlarmReasons(x){
-    const reasons=[];
-    if(x.connected===false){
-      reasons.push(t('alarmLostConnection') + (x.error ? ' ('+x.error+')' : ''));
-    } else {
-      if(x.batteryPercent!=null && x.batteryPercent <= 30){
-        reasons.push(t('alarmBatLow', x.batteryPercent));
+      function t(k, ...args) {
+        const dict = I18N[lang] || I18N.es;
+        const v = dict[k] || I18N.es[k];
+        if (typeof v === 'function') return v(...args);
+        return v ?? k;
       }
-      if(x.autonomyMinutes!=null && x.autonomyMinutes <= 30){
-        reasons.push(t('alarmAutLow', x.autonomyMinutes));
-      }
-      if(x.internalTemperature!=null && x.internalTemperature >= 25){
-        reasons.push(t('alarmIntTempHigh', x.internalTemperature));
-      }
-      if(x.externalTemperature!=null && x.externalTemperature >= 25){
-        reasons.push(t('alarmExtTempHigh', x.externalTemperature));
-      }
-    }
-    return reasons;
-  }
 
-  function updateAlarmPill(){
-    const pill=$('#alarmPillBtn');
-    if(!pill) return;
-    if(currentActiveAlarms.length>0){
-      $('#alarmPillText').textContent=t('alarmPillText', currentActiveAlarms.length);
-      pill.classList.remove('hidden');
-    } else {
-      pill.classList.add('hidden');
-    }
-  }
+      function applyLanguage() {
+        document.documentElement.lang = lang;
+        const ids = [
+          'brandSubtitle', 'backBtn', 'importBtn', 'exportBtn', 'themeBtn',
+          'addBtn', 'heroEyebrow', 'heroTitle', 'heroSubtitle', 'noteText',
+          'dialogTitle', 'dialogNameLabel', 'dialogIpLabel', 'dialogCardLabel',
+          'cancelBtn', 'saveBtn', 'alarmHeadText', 'alarmBadge', 'silenceAlarmBtn'
+        ];
+        ids.forEach(id => {
+          const el = $('#' + id);
+          if (el) el.textContent = t(id);
+        });
+        updateAlarmPill();
+        render();
+      }
 
-  function renderAlarmsPopup(alarms){
-    const body=$('#alarmBody');
-    body.innerHTML=alarms.map(a=>`
+      $('#language').onchange = () => {
+        lang = $('#language').value;
+        localStorage.setItem('janitza-language', lang);
+        applyLanguage();
+      };
+
+      // Theme support
+      const currentTheme = localStorage.getItem('janitza-theme') || 'light';
+      document.documentElement.dataset.theme = currentTheme;
+      $('#themeBtn').onclick = () => {
+        const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = next;
+        localStorage.setItem('janitza-theme', next);
+      };
+
+      function toast(msg) {
+        const el = $('#toast');
+        el.textContent = msg;
+        el.classList.add('show');
+        setTimeout(() => el.classList.remove('show'), 4000);
+      }
+
+      // Audio synthesizer alarm beep (Web Audio API)
+      function playAlarmBeep() {
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(880, ctx.currentTime);
+          osc.frequency.setValueAtTime(587.33, ctx.currentTime + 0.15);
+          osc.frequency.setValueAtTime(880, ctx.currentTime + 0.3);
+          gain.gain.setValueAtTime(0.12, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.5);
+        } catch (e) { }
+      }
+
+      const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+      function getAlarmReasons(x) {
+        const reasons = [];
+        if (x.connected === false) {
+          reasons.push(t('alarmLostConnection') + (x.error ? ' (' + x.error + ')' : ''));
+        } else {
+          if (x.batteryPercent != null && x.batteryPercent <= 30) {
+            reasons.push(t('alarmBatLow', x.batteryPercent));
+          }
+          if (x.autonomyMinutes != null && x.autonomyMinutes <= 30) {
+            reasons.push(t('alarmAutLow', x.autonomyMinutes));
+          }
+          if (x.internalTemperature != null && x.internalTemperature >= 25) {
+            reasons.push(t('alarmIntTempHigh', x.internalTemperature));
+          }
+          if (x.externalTemperature != null && x.externalTemperature >= 25) {
+            reasons.push(t('alarmExtTempHigh', x.externalTemperature));
+          }
+        }
+        return reasons;
+      }
+
+      function updateAlarmPill() {
+        const pill = $('#alarmPillBtn');
+        if (!pill) return;
+        if (currentActiveAlarms.length > 0) {
+          $('#alarmPillText').textContent = t('alarmPillText', currentActiveAlarms.length);
+          pill.classList.remove('hidden');
+        } else {
+          pill.classList.add('hidden');
+        }
+      }
+
+      function renderAlarmsPopup(alarms) {
+        const body = $('#alarmBody');
+        body.innerHTML = alarms.map(a => `
       <div class="alarm-item">
         <span class="alarm-item-icon">⚠️</span>
         <div style="flex:1">
           <div class="alarm-item-name">${esc(a.device.name)}</div>
-          <div class="alarm-item-meta">${esc(a.device.card||'NetMan')} · IP ${esc(a.device.ip)}</div>
+          <div class="alarm-item-meta">${esc(a.device.card || 'NetMan')} · IP ${esc(a.device.ip)}</div>
           <ul class="alarm-reasons">
-            ${a.reasons.map(r=>`<li>${esc(r)}</li>`).join('')}
+            ${a.reasons.map(r => `<li>${esc(r)}</li>`).join('')}
           </ul>
         </div>
       </div>
     `).join('');
-  }
+      }
 
-  function checkAlarmsAndNotify(){
-    const newAlarms=[];
-    let shouldTriggerPopup=false;
+      function checkAlarmsAndNotify() {
+        const newAlarms = [];
+        let shouldTriggerPopup = false;
 
-    currentActiveAlarms=[];
-    for(const x of items){
-      const reasons=getAlarmReasons(x);
-      if(reasons.length>0){
-        const alarmKey=x.name+':'+reasons.join('|');
-        currentActiveAlarms.push({device:x, reasons, key:alarmKey});
-        if(!dismissedAlarms.has(alarmKey)){
-          shouldTriggerPopup=true;
+        currentActiveAlarms = [];
+        for (const x of items) {
+          const reasons = getAlarmReasons(x);
+          if (reasons.length > 0) {
+            const alarmKey = x.name + ':' + reasons.join('|');
+            currentActiveAlarms.push({ device: x, reasons, key: alarmKey });
+            if (!dismissedAlarms.has(alarmKey)) {
+              shouldTriggerPopup = true;
+            }
+          }
+        }
+
+        updateAlarmPill();
+
+        if (shouldTriggerPopup && currentActiveAlarms.length > 0) {
+          renderAlarmsPopup(currentActiveAlarms);
+          playAlarmBeep();
+          const dlg = $('#alarmDialog');
+          if (!dlg.open) {
+            dlg.showModal();
+          }
         }
       }
-    }
 
-    updateAlarmPill();
+      // Dismiss button for alarm popup
+      $('#silenceAlarmBtn').onclick = () => {
+        currentActiveAlarms.forEach(a => dismissedAlarms.add(a.key));
+        $('#alarmDialog').close();
+      };
+      $('#alarmDialog').addEventListener('click', e => {
+        if (e.target === $('#alarmDialog')) {
+          currentActiveAlarms.forEach(a => dismissedAlarms.add(a.key));
+          $('#alarmDialog').close();
+        }
+      });
 
-    if(shouldTriggerPopup && currentActiveAlarms.length>0){
-      renderAlarmsPopup(currentActiveAlarms);
-      playAlarmBeep();
-      const dlg=$('#alarmDialog');
-      if(!dlg.open){
-        dlg.showModal();
-      }
-    }
-  }
+      // Re-open alarm dialog via header pill
+      $('#alarmPillBtn').onclick = () => {
+        if (currentActiveAlarms.length > 0) {
+          renderAlarmsPopup(currentActiveAlarms);
+          $('#alarmDialog').showModal();
+        }
+      };
 
-  // Dismiss button for alarm popup
-  $('#silenceAlarmBtn').onclick=()=>{
-    currentActiveAlarms.forEach(a=>dismissedAlarms.add(a.key));
-    $('#alarmDialog').close();
-  };
-  $('#alarmDialog').addEventListener('click', e=>{
-    if(e.target===$('#alarmDialog')){
-      currentActiveAlarms.forEach(a=>dismissedAlarms.add(a.key));
-      $('#alarmDialog').close();
-    }
-  });
+      function render() {
+        const connectedCount = items.filter(x => x.connected).length;
+        $('#summaryText').textContent = t('summaryText', items.length, connectedCount);
 
-  // Re-open alarm dialog via header pill
-  $('#alarmPillBtn').onclick=()=>{
-    if(currentActiveAlarms.length>0){
-      renderAlarmsPopup(currentActiveAlarms);
-      $('#alarmDialog').showModal();
-    }
-  };
+        if (!items.length) {
+          $('#cards').innerHTML = `<div class="empty">${esc(t('empty'))}</div>`;
+          return;
+        }
 
-  function render(){
-    const connectedCount=items.filter(x=>x.connected).length;
-    $('#summaryText').textContent=t('summaryText', items.length, connectedCount);
+        const localeMap = { es: 'es-ES', en: 'en-US', de: 'de-DE' };
+        const dateLocale = localeMap[lang] || 'es-ES';
 
-    if(!items.length){
-      $('#cards').innerHTML=`<div class="empty">${esc(t('empty'))}</div>`;
-      return;
-    }
+        $('#cards').innerHTML = items.map((x, i) => {
+          const isOnline = x.connected === true;
+          const reasons = getAlarmReasons(x);
+          const isRed = reasons.length > 0;
+          const isHealthy = isOnline && !isRed;
 
-    const localeMap = { es: 'es-ES', en: 'en-US', de: 'de-DE' };
-    const dateLocale = localeMap[lang] || 'es-ES';
+          let stateLabel = '';
+          let stateClass = '';
+          if (!isOnline) {
+            stateLabel = t('offline');
+            stateClass = 'offline';
+          } else if (isRed) {
+            stateLabel = t('stateRed');
+            stateClass = 'red';
+          } else {
+            stateLabel = t('connected');
+            stateClass = 'online';
+          }
 
-    $('#cards').innerHTML=items.map((x,i)=>{
-      const isOnline=x.connected===true;
-      const reasons=getAlarmReasons(x);
-      const isRed=reasons.length>0;
-      const isHealthy=isOnline && !isRed;
+          const cardClass = isHealthy ? 'card-healthy' : 'card-red';
+          const cardHint = isHealthy ? t('optimalState') : reasons.join('. ');
 
-      let stateLabel = '';
-      let stateClass = '';
-      if(!isOnline){
-        stateLabel = t('offline');
-        stateClass = 'offline';
-      } else if(isRed){
-        stateLabel = t('stateRed');
-        stateClass = 'red';
-      } else {
-        stateLabel = t('connected');
-        stateClass = 'online';
-      }
+          const timeStr = x.updatedAt ? new Date(x.updatedAt).toLocaleTimeString(dateLocale) : '';
 
-      const cardClass = isHealthy ? 'card-healthy' : 'card-red';
-      const cardHint = isHealthy ? t('optimalState') : reasons.join('. ');
+          const bat = x.batteryPercent != null ? x.batteryPercent : '—';
+          const aut = x.autonomyMinutes != null ? x.autonomyMinutes : '—';
+          const intTemp = x.internalTemperature != null ? x.internalTemperature : '—';
+          const extTemp = x.externalTemperature != null ? x.externalTemperature : '—';
+          const hum = x.humidity != null ? x.humidity : '—';
 
-      const timeStr=x.updatedAt ? new Date(x.updatedAt).toLocaleTimeString(dateLocale) : '';
+          const batBad = isOnline && x.batteryPercent != null && x.batteryPercent <= 30;
+          const autBad = isOnline && x.autonomyMinutes != null && x.autonomyMinutes <= 30;
+          const intTempBad = isOnline && x.internalTemperature != null && x.internalTemperature >= 25;
+          const extTempBad = isOnline && x.externalTemperature != null && x.externalTemperature >= 25;
 
-      const bat=x.batteryPercent!=null ? x.batteryPercent : '—';
-      const aut=x.autonomyMinutes!=null ? x.autonomyMinutes : '—';
-      const intTemp=x.internalTemperature!=null ? x.internalTemperature : '—';
-      const extTemp=x.externalTemperature!=null ? x.externalTemperature : '—';
-      const hum=x.humidity!=null ? x.humidity : '—';
-
-      const batBad = isOnline && x.batteryPercent!=null && x.batteryPercent <= 30;
-      const autBad = isOnline && x.autonomyMinutes!=null && x.autonomyMinutes <= 30;
-      const intTempBad = isOnline && x.internalTemperature!=null && x.internalTemperature >= 25;
-      const extTempBad = isOnline && x.externalTemperature!=null && x.externalTemperature >= 25;
-
-      return `<article class="card ${cardClass}" title="${esc(cardHint)}">
+          return `<article class="card ${cardClass}" title="${esc(cardHint)}">
         <div class="card-top">
           <div>
             <div class="name">${esc(x.name)}</div>
@@ -838,172 +1101,173 @@ input:focus,select:focus{border-color:var(--accent)}
           <button class="remove" data-remove="${i}" title="${esc(t('remove'))}">${esc(t('remove'))}</button>
         </div>
       </article>`;
-    }).join('');
+        }).join('');
 
-    document.querySelectorAll('[data-remove]').forEach(b=>{
-      b.onclick=async()=>{
-        const idx=Number(b.dataset.remove);
-        const toDelete=items[idx];
-        if(!toDelete) return;
-        if(!confirm(t('removeConfirm', toDelete.name))) return;
-        items.splice(idx,1);
-        await syncInventoryWithServer();
-      };
-    });
-  }
+        document.querySelectorAll('[data-remove]').forEach(b => {
+          b.onclick = async () => {
+            const idx = Number(b.dataset.remove);
+            const toDelete = items[idx];
+            if (!toDelete) return;
+            if (!confirm(t('removeConfirm', toDelete.name))) return;
+            items.splice(idx, 1);
+            await syncInventoryWithServer();
+          };
+        });
+      }
 
-  async function syncInventoryWithServer(){
-    try{
-      const payload=items.map(x=>({name:x.name,ip:x.ip,card:x.card||'NetMan 208'}));
-      const res=await fetch('/api/ups/inventory',{
-        method:'POST',
-        headers:{'content-type':'application/json'},
-        body:JSON.stringify(payload)
-      });
-      const data=await res.json();
-      if(!res.ok) throw Error(data.error||'Error');
-      localStorage.setItem(STORAGE_KEY,JSON.stringify(payload));
-      toast(t('toastSaved'));
-      await fetchReadings();
-    }catch(err){
-      toast(err.message);
-      render();
-    }
-  }
-
-  async function fetchReadings(){
-    try{
-      const res=await fetch('/api/ups/readings',{cache:'no-store'});
-      if(!res.ok) return;
-      const data=await res.json();
-      const serverDevices=data.devices||[];
-
-      if(serverDevices.length>0){
-        items=serverDevices;
-        localStorage.setItem(STORAGE_KEY,JSON.stringify(items.map(x=>({name:x.name,ip:x.ip,card:x.card}))));
-        render();
-        checkAlarmsAndNotify();
-      }else if(!items.length){
-        let localSaved=[];
-        try{localSaved=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]')}catch{}
-        if(localSaved.length>0){
-          items=localSaved;
-          await syncInventoryWithServer();
-        }else{
-          items=[];
+      async function syncInventoryWithServer() {
+        try {
+          const payload = items.map(x => ({ name: x.name, ip: x.ip, card: x.card || 'NetMan 208' }));
+          const res = await fetch('/api/ups/inventory', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json();
+          if (!res.ok) throw Error(data.error || 'Error');
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+          toast(t('toastSaved'));
+          await fetchReadings();
+        } catch (err) {
+          toast(err.message);
           render();
         }
-      }else{
-        render();
-        checkAlarmsAndNotify();
-      }
-    }catch(err){
-      render();
-    }
-  }
-
-  // Dialog controls
-  $('#addBtn').onclick=()=>$('#dlg').showModal();
-  $('#cancelBtn').onclick=()=>$('#dlg').close();
-  $('#dlg').addEventListener('click',e=>{if(e.target===$('#dlg'))$('#dlg').close()});
-
-  $('#form').onsubmit=async e=>{
-    e.preventDefault();
-    const btn=$('#saveBtn');
-    btn.disabled=true;
-    try{
-      const d=Object.fromEntries(new FormData(e.currentTarget));
-      const name=d.name.trim();
-      const ip=d.ip.trim();
-      const card=d.card.trim();
-
-      if(!name) throw Error(t('errName'));
-      if(!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(ip)||ip.split('.').some(n=>+n>255)){
-        throw Error(t('errIp'));
-      }
-      if(items.some(x=>x.name.toLowerCase()===name.toLowerCase())){
-        throw Error(t('errDuplicate', name));
       }
 
-      items.push({name,ip,card});
-      await syncInventoryWithServer();
-      e.currentTarget.reset();
-      $('#dlg').close();
-    }catch(err){
-      toast(err.message);
-    }finally{
-      btn.disabled=false;
-    }
-  };
+      async function fetchReadings() {
+        try {
+          const res = await fetch('/api/ups/readings', { cache: 'no-store' });
+          if (!res.ok) return;
+          const data = await res.json();
+          const serverDevices = data.devices || [];
 
-  // CSV Import
-  $('#importBtn').onclick=()=>$('#file').click();
-  $('#file').onchange=async e=>{
-    const f=e.target.files?.[0];
-    if(!f) return;
-    try{
-      const text=await f.text();
-      const clean=text.replace(/^\ufeff/,'');
-      const lines=clean.split(/\r?\n/).filter(l=>l.trim());
-      if(!lines.length) throw Error(t('errCsvEmpty'));
-
-      const delim=(lines[0].match(/;/g)||[]).length>=(lines[0].match(/,/g)||[]).length?';':',';
-      const parse=line=>{
-        const out=[];let v='',q=false;
-        for(let i=0;i<line.length;i++){
-          const c=line[i];
-          if(c==='"'&&q&&line[i+1]==='"'){v+='"';i++}
-          else if(c==='"')q=!q;
-          else if(c===delim&&!q){out.push(v.trim());v=''}
-          else v+=c;
+          if (serverDevices.length > 0) {
+            items = serverDevices;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(items.map(x => ({ name: x.name, ip: x.ip, card: x.card }))));
+            render();
+            checkAlarmsAndNotify();
+          } else if (!items.length) {
+            let localSaved = [];
+            try { localSaved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch { }
+            if (localSaved.length > 0) {
+              items = localSaved;
+              await syncInventoryWithServer();
+            } else {
+              items = [];
+              render();
+            }
+          } else {
+            render();
+            checkAlarmsAndNotify();
+          }
+        } catch (err) {
+          render();
         }
-        out.push(v.trim());
-        return out;
+      }
+
+      // Dialog controls
+      $('#addBtn').onclick = () => $('#dlg').showModal();
+      $('#cancelBtn').onclick = () => $('#dlg').close();
+      $('#dlg').addEventListener('click', e => { if (e.target === $('#dlg')) $('#dlg').close() });
+
+      $('#form').onsubmit = async e => {
+        e.preventDefault();
+        const btn = $('#saveBtn');
+        btn.disabled = true;
+        try {
+          const d = Object.fromEntries(new FormData(e.currentTarget));
+          const name = d.name.trim();
+          const ip = d.ip.trim();
+          const card = d.card.trim();
+
+          if (!name) throw Error(t('errName'));
+          if (!/^\d{1,3}(?:\.\d{1,3}){3}$/.test(ip) || ip.split('.').some(n => +n > 255)) {
+            throw Error(t('errIp'));
+          }
+          if (items.some(x => x.name.toLowerCase() === name.toLowerCase())) {
+            throw Error(t('errDuplicate', name));
+          }
+
+          items.push({ name, ip, card });
+          await syncInventoryWithServer();
+          e.currentTarget.reset();
+          $('#dlg').close();
+        } catch (err) {
+          toast(err.message);
+        } finally {
+          btn.disabled = false;
+        }
       };
 
-      const head=parse(lines.shift()).map(s=>s.toLowerCase().replace(/[\s_-]+/g,''));
-      const ni=head.findIndex(h=>['name','nombre','equipo','nombredel_equipo','zaehler','geraet'].includes(h));
-      const ii=head.findIndex(h=>['ip','direccionip','modbusip','address','adresse'].includes(h));
-      const ci=head.findIndex(h=>['card','tarjeta','modelo','model','karte'].includes(h));
+      // CSV Import
+      $('#importBtn').onclick = () => $('#file').click();
+      $('#file').onchange = async e => {
+        const f = e.target.files?.[0];
+        if (!f) return;
+        try {
+          const text = await f.text();
+          const clean = text.replace(/^\ufeff/, '');
+          const lines = clean.split(/\r?\n/).filter(l => l.trim());
+          if (!lines.length) throw Error(t('errCsvEmpty'));
 
-      if(ni<0||ii<0) throw Error(t('errCsvHeaders'));
+          const delim = (lines[0].match(/;/g) || []).length >= (lines[0].match(/,/g) || []).length ? ';' : ',';
+          const parse = line => {
+            const out = []; let v = '', q = false;
+            for (let i = 0; i < line.length; i++) {
+              const c = line[i];
+              if (c === '"' && q && line[i + 1] === '"') { v += '"'; i++ }
+              else if (c === '"') q = !q;
+              else if (c === delim && !q) { out.push(v.trim()); v = '' }
+              else v += c;
+            }
+            out.push(v.trim());
+            return out;
+          };
 
-      const parsedItems=[];
-      for(const line of lines){
-        const row=parse(line);
-        const name=row[ni]?.trim();
-        const ip=row[ii]?.trim();
-        let card=row[ci]?.trim()||'NetMan 208';
-        if(!/^NetMan/i.test(card)) card='NetMan 208';
+          const head = parse(lines.shift()).map(s => s.toLowerCase().replace(/[\s_-]+/g, ''));
+          const ni = head.findIndex(h => ['name', 'nombre', 'equipo', 'nombredel_equipo', 'zaehler', 'geraet'].includes(h));
+          const ii = head.findIndex(h => ['ip', 'direccionip', 'modbusip', 'address', 'adresse'].includes(h));
+          const ci = head.findIndex(h => ['card', 'tarjeta', 'modelo', 'model', 'karte'].includes(h));
 
-        if(name&&/^\d{1,3}(?:\.\d{1,3}){3}$/.test(ip)&&ip.split('.').every(n=>+n<=255)){
-          parsedItems.push({name,ip,card});
+          if (ni < 0 || ii < 0) throw Error(t('errCsvHeaders'));
+
+          const parsedItems = [];
+          for (const line of lines) {
+            const row = parse(line);
+            const name = row[ni]?.trim();
+            const ip = row[ii]?.trim();
+            let card = row[ci]?.trim() || 'NetMan 208';
+            if (!/^NetMan/i.test(card)) card = 'NetMan 208';
+
+            if (name && /^\d{1,3}(?:\.\d{1,3}){3}$/.test(ip) && ip.split('.').every(n => +n <= 255)) {
+              parsedItems.push({ name, ip, card });
+            }
+          }
+
+          if (!parsedItems.length) throw Error(t('errCsvNoValid'));
+          items = parsedItems;
+          await syncInventoryWithServer();
+          toast(t('toastImported', items.length));
+        } catch (err) {
+          toast(err.message);
         }
-      }
+        e.target.value = '';
+      };
 
-      if(!parsedItems.length) throw Error(t('errCsvNoValid'));
-      items=parsedItems;
-      await syncInventoryWithServer();
-      toast(t('toastImported', items.length));
-    }catch(err){
-      toast(err.message);
-    }
-    e.target.value='';
-  };
+      // CSV Export
+      $('#exportBtn').onclick = e => {
+        if (!items.length) {
+          e.preventDefault();
+          toast(t('toastNoExport'));
+        }
+      };
 
-  // CSV Export
-  $('#exportBtn').onclick=e=>{
-    if(!items.length){
-      e.preventDefault();
-      toast(t('toastNoExport'));
-    }
-  };
-
-  // Initial load
-  applyLanguage();
-  fetchReadings();
-  pollInterval=setInterval(fetchReadings,3000);
-})();
-</script>
+      // Initial load
+      applyLanguage();
+      fetchReadings();
+      pollInterval = setInterval(fetchReadings, 3000);
+    })();
+  </script>
 </body>
+
 </html>
