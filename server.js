@@ -40,7 +40,7 @@ let history = { version: 2, calculation: 'sampled-power-integration-v1', meters:
 let upsDevices = [];
 let upsReadings = new Map();
 let upsPollRunning = false;
-const overtempTracker = new Map(); // name -> timestamp ISO when temperature first reached >= 40C
+const overtempTracker = new Map(); // name -> timestamp ISO when temperature first exceeded 40C (> 40C)
 
 function localDateKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -347,12 +347,12 @@ async function pollUpsDevice(device) {
     const internalTemperature = await readHoldingRegisters(endpoint, 61, 1);
     const intTemp = usableRegister(internalTemperature[0]);
     let overtempSince = overtempTracker.get(device.name) || null;
-    if (intTemp != null && intTemp >= 40) {
+    if (intTemp != null && intTemp > 40) {
       if (!overtempSince) {
         overtempSince = new Date().toISOString();
         overtempTracker.set(device.name, overtempSince);
       }
-    } else if (intTemp != null && intTemp < 40) {
+    } else if (intTemp != null && intTemp <= 40) {
       overtempSince = null;
       overtempTracker.delete(device.name);
     }
