@@ -13,7 +13,7 @@ const os = require('node:os');
 const HOST = process.env.HOST || '0.0.0.0';
 let PORT = Number(process.env.PORT || 8080);
 const PORT_WAS_EXPLICIT = Boolean(process.env.PORT);
-const POLL_MS = Math.max(3000, Number(process.env.POLL_MS || 10000));
+const POLL_MS = Math.max(3000, Number(process.env.POLL_MS || 30 * 60 * 1000));
 const TIMEOUT_MS = Math.max(500, Number(process.env.MODBUS_TIMEOUT_MS || 1800));
 const MAX_CSV_BYTES = 2 * 1024 * 1024;
 const ROOT = __dirname;
@@ -33,7 +33,7 @@ const REGISTER_MAP = {
   janitzaPower: 19026, janitzaImportEnergy: 19068,
   siemensPac2200Power: 65, siemensPac2200ImportEnergy: 801,
 };
-const MAX_INTEGRATION_GAP_MS = 5 * 60 * 1000;
+const MAX_INTEGRATION_GAP_MS = Math.max(45 * 60 * 1000, POLL_MS * 1.5);
 let meters = [];
 let readings = new Map();
 let pollRunning = false;
@@ -148,9 +148,30 @@ function loadLocalData() {
     saveHistorySync();
   } catch {}
 
-  // Pre-fill readings cache immediately from history so the UI never displays blank on restart
-  for (const [name, rec] of Object.entries(history.meters)) {
-    if (!readings.has(name)) {
+  try {
+    if (fs.existsSync(INVENTORY_FILE)) {
+      meters = parseCsv(fs.readFileSync(INVENTORY_FILE, 'utf8'));
+      if (meters.length) console.log(`Loaded ${meters.length} meters from saved inventory.`);
+    }
+  } catch (error) {
+    console.warn(`Could not read ${path.basename(INVENTORY_FILE)}: ${error.message}`);
+  }
+
+  // Pre-fill readings cache: strictly for active inventory meters
+  if (meters.length) {
+    for (const meter of meters) {
+      const rec = history.meters[meter.name];
+      readings.set(meter.name, {
+        power: rec?.lastPowerKw ?? null,
+        energy: rec?.totalEnergyKwh ?? null,
+        meterEnergy: rec?.lastMeterEnergyKwh ?? null,
+        connected: false,
+        error: 'Conectando...',
+        updatedAt: rec?.lastAt || null,
+      });
+    }
+  } else {
+    for (const [name, rec] of Object.entries(history.meters)) {
       readings.set(name, {
         power: rec.lastPowerKw ?? null,
         energy: rec.totalEnergyKwh ?? null,
@@ -162,14 +183,6 @@ function loadLocalData() {
     }
   }
 
-  try {
-    if (fs.existsSync(INVENTORY_FILE)) {
-      meters = parseCsv(fs.readFileSync(INVENTORY_FILE, 'utf8'));
-      if (meters.length) console.log(`Loaded ${meters.length} meters from saved inventory.`);
-    }
-  } catch (error) {
-    console.warn(`Could not read ${path.basename(INVENTORY_FILE)}: ${error.message}`);
-  }
   try {
     if (fs.existsSync(UPS_FILE)) {
       const savedUps = JSON.parse(fs.readFileSync(UPS_FILE, 'utf8'));
@@ -588,7 +601,30 @@ const server = http.createServer((req, res) => {
       if (!parsed.length) return sendJson(res, 400, { error: 'No se encontraron equipos con IP y configuración válida.' });
       try { fs.writeFileSync(INVENTORY_FILE, serializeInventory(parsed), 'utf8'); }
       catch (error) { return sendJson(res, 500, { error: `No se pudo guardar el inventario en la carpeta del dashboard: ${error.message}` }); }
-      meters = parsed; readings = new Map(); lastPollAt = null;
+      meters = parsed;
+      readings = new Map();
+      lastPollAt = null;
+
+      // Only contemplate imported devices: remove any non-imported devices from history
+      const activeNames = new Set(meters.map(m => m.name));
+      for (const name of Object.keys(history.meters)) {
+        if (!activeNames.has(name)) delete history.meters[name];
+      }
+      saveHistorySync();
+
+      // Pre-fill readings strictly for the imported devices
+      for (const meter of meters) {
+        const rec = history.meters[meter.name];
+        readings.set(meter.name, {
+          power: rec?.lastPowerKw ?? null,
+          energy: rec?.totalEnergyKwh ?? null,
+          meterEnergy: rec?.lastMeterEnergyKwh ?? null,
+          connected: false,
+          error: 'Iniciando lectura...',
+          updatedAt: rec?.lastAt || null,
+        });
+      }
+
       pollAll();
       return sendJson(res, 200, { count: meters.length, message: 'Inventario recibido; iniciando lectura Modbus TCP.' });
     });
@@ -696,7 +732,8 @@ loadLocalData();
 server.listen(PORT, HOST, () => {
   console.log(`Janitza Monitor listening on ${HOST}:${PORT}`);
   printAccessUrls();
-  console.log(`Modbus polling interval: ${POLL_MS} ms; timeout: ${TIMEOUT_MS} ms`);
+  const pollMinutes = Math.round(POLL_MS / 60000);
+  console.log(`Modbus polling interval: ${POLL_MS} ms (${pollMinutes} min); timeout: ${TIMEOUT_MS} ms`);
   if (meters.length) pollAll();
   if (upsDevices.length) pollAllUps();
   if (process.env.OPEN_BROWSER === '1' && process.platform === 'win32') {
