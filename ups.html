@@ -180,42 +180,37 @@
     }
 
     .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
-      gap: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
       width: 100%;
+      align-items: stretch;
     }
 
-    /* 16:9 & 16:10 multi-resolution adaptive card layout */
-    @media (min-width: 1180px) {
-      .grid {
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 14px;
-      }
-    }
-
-    @media (min-width: 1540px) {
-      .grid {
-        grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
-        gap: 14px;
-      }
+    /* Dynamic Card Borders (Green vs Red/Warning) */
+    .card {
+      flex: 1 1 var(--card-basis, 320px);
+      min-width: min(100%, 270px);
+      max-width: 100%;
+      border: 2px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      transition: border-color .2s, box-shadow .2s;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-sizing: border-box;
     }
 
     @media (min-width: 1880px) {
-      .grid {
-        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-        gap: 16px;
-      }
       .card {
         padding: 20px;
       }
     }
 
     @media (min-width: 2500px) {
-      .grid {
-        grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-        gap: 18px;
-      }
       .name {
         font-size: 17px;
       }
@@ -225,27 +220,12 @@
     }
 
     @media (min-width: 3400px) {
-      .grid {
-        grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
-        gap: 22px;
-      }
       .name {
         font-size: 19px;
       }
       .value {
         font-size: 26px;
       }
-    }
-
-    /* Dynamic Card Borders (Green vs Red/Warning) */
-    .card {
-      border: 2px solid var(--line);
-      border-radius: 16px;
-      background: var(--panel);
-      box-shadow: var(--shadow);
-      padding: 18px;
-      min-width: 0;
-      transition: border-color .2s, box-shadow .2s;
     }
 
     .card.card-healthy {
@@ -417,13 +397,14 @@
     }
 
     .empty {
-      grid-column: 1/-1;
+      width: 100%;
       text-align: center;
       padding: 50px 20px;
       color: var(--muted);
       border: 1px dashed var(--line);
       border-radius: 16px;
       background: var(--panel);
+      box-sizing: border-box;
     }
 
     /* Modals */
@@ -697,7 +678,12 @@
       }
 
       .grid {
-        grid-template-columns: 1fr
+        gap: 12px;
+      }
+
+      .card {
+        flex: 1 1 100% !important;
+        min-width: 100% !important;
       }
     }
   </style>
@@ -1276,6 +1262,48 @@
             await syncInventoryWithServer();
           };
         });
+
+        updateGridLayout();
+      }
+
+      function updateGridLayout() {
+        const grid = $('#cards');
+        if (!grid || !items || !items.length) return;
+        const count = items.length;
+        const containerWidth = grid.clientWidth || window.innerWidth;
+        const gap = 14;
+
+        // Find optimal column count to fill all gaps
+        const minCardW = 270;
+        const maxCardW = 480;
+        const maxColsPossible = Math.max(1, Math.min(count, Math.floor((containerWidth + gap) / (minCardW + gap))));
+        const minColsPossible = Math.max(1, Math.min(count, Math.floor((containerWidth + gap) / (maxCardW + gap))));
+
+        let bestCols = maxColsPossible;
+        let bestScore = Infinity;
+
+        for (let c = maxColsPossible; c >= minColsPossible; c--) {
+          const remainder = count % c;
+          const emptyHoles = remainder === 0 ? 0 : (c - remainder);
+          const cardWidth = (containerWidth - (c - 1) * gap) / c;
+
+          // Strong penalty for empty holes to keep every row complete
+          const widthDiff = Math.abs(cardWidth - 340);
+          const score = emptyHoles * 2000 + widthDiff;
+
+          if (score < bestScore) {
+            bestScore = score;
+            bestCols = c;
+          }
+        }
+
+        const colBasis = Math.floor((containerWidth - (bestCols - 1) * gap) / bestCols);
+        grid.style.setProperty('--card-basis', `${Math.max(260, colBasis - 2)}px`);
+      }
+
+      window.addEventListener('resize', updateGridLayout);
+      if (window.ResizeObserver) {
+        new ResizeObserver(updateGridLayout).observe(document.body);
       }
 
       async function syncInventoryWithServer() {
