@@ -403,7 +403,13 @@ function serveFile(res, file) {
     if (error) return sendJson(res, 404, { error: 'Archivo no encontrado' });
     const ext = path.extname(file);
     const type = ext === '.html' ? 'text/html; charset=utf-8' : ext === '.js' ? 'text/javascript; charset=utf-8' : 'text/plain; charset=utf-8';
-    res.writeHead(200, { 'content-type': type, 'cache-control': 'no-store' }); res.end(body);
+    res.writeHead(200, {
+      'content-type': type,
+      'cache-control': 'no-store, no-cache, must-revalidate, max-age=0',
+      'pragma': 'no-cache',
+      'expires': '0'
+    });
+    res.end(body);
   });
 }
 

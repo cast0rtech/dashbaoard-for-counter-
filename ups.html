@@ -53,9 +53,9 @@
 
     .shell {
       width: 100%;
-      max-width: 100%;
-      margin: 0;
-      padding: 24px clamp(16px, 2.2vw, 40px) 44px;
+      max-width: 100% !important;
+      margin: 0 !important;
+      padding: 16px 12px 32px;
       box-sizing: border-box;
     }
 
@@ -71,7 +71,7 @@
     }
 
     .top {
-      margin-bottom: 36px
+      margin-bottom: 20px
     }
 
     .brand {
@@ -145,7 +145,7 @@
 
     .hero {
       align-items: end;
-      margin-bottom: 25px
+      margin-bottom: 16px
     }
 
     .hero h1 {
@@ -182,9 +182,10 @@
     .grid {
       display: flex;
       flex-wrap: wrap;
-      gap: 14px;
+      gap: 12px;
       width: 100%;
       align-items: stretch;
+      margin: 0;
     }
 
     /* Dynamic Card Borders (Green vs Red/Warning) */
@@ -1271,11 +1272,11 @@
         if (!grid || !items || !items.length) return;
         const count = items.length;
         const containerWidth = grid.clientWidth || window.innerWidth;
-        const gap = 14;
+        const gap = 12;
 
         // Find optimal column count to fill all gaps
-        const minCardW = 270;
-        const maxCardW = 480;
+        const minCardW = 250;
+        const maxCardW = 460;
         const maxColsPossible = Math.max(1, Math.min(count, Math.floor((containerWidth + gap) / (minCardW + gap))));
         const minColsPossible = Math.max(1, Math.min(count, Math.floor((containerWidth + gap) / (maxCardW + gap))));
 
@@ -1298,7 +1299,7 @@
         }
 
         const colBasis = Math.floor((containerWidth - (bestCols - 1) * gap) / bestCols);
-        grid.style.setProperty('--card-basis', `${Math.max(260, colBasis - 2)}px`);
+        grid.style.setProperty('--card-basis', `${Math.max(250, colBasis - 2)}px`);
       }
 
       window.addEventListener('resize', updateGridLayout);
