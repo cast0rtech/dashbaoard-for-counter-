@@ -401,8 +401,14 @@ function sendJson(res, code, data) {
 function serveFile(res, file) {
   fs.readFile(file, (error, body) => {
     if (error) return sendJson(res, 404, { error: 'Archivo no encontrado' });
-    const ext = path.extname(file);
-    const type = ext === '.html' ? 'text/html; charset=utf-8' : ext === '.js' ? 'text/javascript; charset=utf-8' : 'text/plain; charset=utf-8';
+    const ext = path.extname(file).toLowerCase();
+    const type = ext === '.html' ? 'text/html; charset=utf-8' :
+                 ext === '.js' ? 'text/javascript; charset=utf-8' :
+                 ext === '.webp' ? 'image/webp' :
+                 ext === '.png' ? 'image/png' :
+                 ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' :
+                 ext === '.svg' ? 'image/svg+xml' :
+                 ext === '.ico' ? 'image/x-icon' : 'text/plain; charset=utf-8';
     res.writeHead(200, {
       'content-type': type,
       'cache-control': 'no-store, no-cache, must-revalidate, max-age=0',
@@ -530,6 +536,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) return serveFile(res, path.join(ROOT, 'index.html'));
   if (req.method === 'GET' && req.url.startsWith('/history.html')) return serveFile(res, path.join(ROOT, 'history.html'));
   if (req.method === 'GET' && req.url === '/ups.html') return serveFile(res, path.join(ROOT, 'ups.html'));
+  if (req.method === 'GET' && (req.url === '/logo.webp' || req.url === '/favicon.ico')) return serveFile(res, path.join(ROOT, 'logo.webp'));
   if (req.method === 'GET' && req.url === '/server.js') return sendJson(res, 404, { error: 'Not found' });
   return sendJson(res, 404, { error: 'Not found' });
 });
