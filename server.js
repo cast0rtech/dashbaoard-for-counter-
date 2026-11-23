@@ -536,7 +536,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) return serveFile(res, path.join(ROOT, 'index.html'));
   if (req.method === 'GET' && req.url.startsWith('/history.html')) return serveFile(res, path.join(ROOT, 'history.html'));
   if (req.method === 'GET' && req.url === '/ups.html') return serveFile(res, path.join(ROOT, 'ups.html'));
-  if (req.method === 'GET' && (req.url === '/logo.webp' || req.url === '/favicon.ico')) return serveFile(res, path.join(ROOT, 'logo.webp'));
+  if (req.method === 'GET' && (req.url.startsWith('/logo.webp') || req.url === '/favicon.ico')) return serveFile(res, path.join(ROOT, 'logo.webp'));
   if (req.method === 'GET' && req.url === '/server.js') return sendJson(res, 404, { error: 'Not found' });
   return sendJson(res, 404, { error: 'Not found' });
 });
