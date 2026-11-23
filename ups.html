@@ -525,6 +525,54 @@
       background: var(--panel2);
     }
 
+    .severe-tag {
+      display: inline-block;
+      background: #e74c3c;
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 1px 6px;
+      border-radius: 4px;
+      margin-left: 6px;
+      letter-spacing: .03em;
+      vertical-align: middle;
+      animation: pulseGrave 1.2s infinite;
+    }
+
+    .severe-badge {
+      display: inline-block;
+      background: #e74c3c;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 4px;
+      margin-left: 4px;
+      letter-spacing: .02em;
+      vertical-align: middle;
+      animation: pulseGrave 1.2s infinite;
+    }
+
+    .alarm-item-severe {
+      border: 1.5px solid #e74c3c;
+      background: rgba(231, 76, 60, 0.16);
+      box-shadow: 0 0 12px rgba(231, 76, 60, 0.25);
+    }
+
+    .val-pulse {
+      animation: pulseGraveText 1.2s infinite;
+    }
+
+    @keyframes pulseGrave {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.08); opacity: 0.85; }
+    }
+
+    @keyframes pulseGraveText {
+      0%, 100% { opacity: 1; text-shadow: 0 0 4px #e74c3c66; }
+      50% { opacity: 0.75; text-shadow: 0 0 10px #e74c3caa; }
+    }
+
     .alarm-pill {
       background: #e74c3c !important;
       color: white !important;
@@ -737,7 +785,9 @@
           alarmIntTemp24h: (temp, h) => `Temperatura interna crítica: ${temp}°C durante más de 24h (${h}h continuas a ≥ 40°C)`,
           intTempNormal: 'Rango normal de operación (30 a 35 °C)',
           intTempOvertempWarn: h => `Temperatura ≥ 40°C durante ${h}h (grave si supera 24h)`,
-          alarmExtTempHigh: temp => `Temperatura externa ambiental alta: ${temp}°C (requerido < 25°C)`,
+          alarmExtTempHigh: temp => `🚨 ALARMA GRAVE (CLIMA DE SALA): Temperatura ambiental externa de ${temp}°C (límite crítico < 25°C)`,
+          roomTempCriticalBanner: '🔥 ALERTA GRAVE DE SALA: Temperatura ambiental externa superada. Riesgo para los equipos; revisar climatización / aire acondicionado de inmediato.',
+          graveBadge: '¡GRAVE!',
           alarmPillText: n => `${n} ${n === 1 ? 'alarma activa' : 'alarmas activas'}`,
           errName: 'El nombre no puede estar vacío.',
           errIp: 'Introduce una dirección IPv4 válida.',
@@ -791,7 +841,9 @@
           alarmIntTemp24h: (temp, h) => `Critical internal temperature: ${temp}°C sustained for more than 24h (${h}h continuous at ≥ 40°C)`,
           intTempNormal: 'Normal operating range (30 to 35 °C)',
           intTempOvertempWarn: h => `Temperature ≥ 40°C for ${h}h (critical if exceeding 24h)`,
-          alarmExtTempHigh: temp => `High ambient external temperature: ${temp}°C (required < 25°C)`,
+          alarmExtTempHigh: temp => `🚨 SEVERE ALARM (ROOM CLIMATE): External ambient temperature of ${temp}°C (critical limit < 25°C)`,
+          roomTempCriticalBanner: '🔥 SEVERE ROOM ALERT: Ambient room temperature exceeded. Risk to equipment; inspect HVAC / cooling immediately.',
+          graveBadge: 'CRITICAL!',
           alarmPillText: n => `${n} active ${n === 1 ? 'alarm' : 'alarms'}`,
           errName: 'Name cannot be empty.',
           errIp: 'Please enter a valid IPv4 address.',
@@ -845,7 +897,9 @@
           alarmIntTemp24h: (temp, h) => `Kritische interne Temperatur: ${temp}°C für mehr als 24h gehalten (${h}h kontinuierlich bei ≥ 40°C)`,
           intTempNormal: 'Normaler Betriebsbereich (30 bis 35 °C)',
           intTempOvertempWarn: h => `Temperatur ≥ 40°C seit ${h}h (kritisch bei über 24h)`,
-          alarmExtTempHigh: temp => `Hohe externe Umgebungstemperatur: ${temp}°C (erforderlich < 25°C)`,
+          alarmExtTempHigh: temp => `🚨 SCHWERER ALARM (RAUMKLIMA): Externe Umgebungstemperatur von ${temp}°C (kritischer Grenzwert < 25°C)`,
+          roomTempCriticalBanner: '🔥 SCHWERER RAUMALARM: Raumumgebungstemperatur überschritten. Gefahr für Geräte; Klimatisierung sofort prüfen.',
+          graveBadge: 'KRITISCH!',
           alarmPillText: n => `${n} aktive ${n === 1 ? 'Alarm' : 'Alarme'}`,
           errName: 'Name darf nicht leer sein.',
           errIp: 'Bitte eine gültige IPv4-Adresse eingeben.',
@@ -964,18 +1018,28 @@
 
       function renderAlarmsPopup(alarms) {
         const body = $('#alarmBody');
-        body.innerHTML = alarms.map(a => `
-      <div class="alarm-item">
-        <span class="alarm-item-icon">⚠️</span>
+        const hasSevereRoomTemp = alarms.some(a => a.device && a.device.externalTemperature != null && a.device.externalTemperature >= 25);
+        const bannerHtml = hasSevereRoomTemp ? `
+      <div style="background: rgba(239, 68, 68, 0.16); border: 1.5px solid #e74c3c; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; font-weight: 700; color: #ef4444; display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 1.4;">
+        <span style="font-size: 20px;">🔥</span>
+        <span>${esc(t('roomTempCriticalBanner'))}</span>
+      </div>` : '';
+
+        body.innerHTML = bannerHtml + alarms.map(a => {
+          const hasRoomTempAlarm = a.device && a.device.externalTemperature != null && a.device.externalTemperature >= 25;
+          return `
+      <div class="alarm-item ${hasRoomTempAlarm ? 'alarm-item-severe' : ''}">
+        <span class="alarm-item-icon">${hasRoomTempAlarm ? '🔥' : '⚠️'}</span>
         <div style="flex:1">
-          <div class="alarm-item-name">${esc(a.device.name)}</div>
+          <div class="alarm-item-name">${esc(a.device.name)} ${hasRoomTempAlarm ? `<span class="severe-tag">${esc(t('graveBadge'))}</span>` : ''}</div>
           <div class="alarm-item-meta">${esc(a.device.card || 'NetMan')} · IP ${esc(a.device.ip)}</div>
           <ul class="alarm-reasons">
             ${a.reasons.map(r => `<li>${esc(r)}</li>`).join('')}
           </ul>
         </div>
       </div>
-    `).join('');
+    `;
+        }).join('');
       }
 
       function checkAlarmsAndNotify() {
@@ -1108,8 +1172,8 @@
             <div class="value ${intTempCritical ? 'val-red' : ''}" ${intTempHint ? `title="${esc(intTempHint)}"` : ''}>${intTemp}<span class="unit">°C</span></div>
           </div>
           <div class="metric">
-            <div class="label">${esc(t('externalTemp'))}</div>
-            <div class="value ${extTempBad ? 'val-red' : ''}" ${x.externalTemperature == null ? `title="${esc(t('noProbe'))}"` : ''}>${extTemp}<span class="unit">°C</span></div>
+            <div class="label">${esc(t('externalTemp'))} ${extTempBad ? `<span class="severe-badge">${esc(t('graveBadge'))}</span>` : ''}</div>
+            <div class="value ${extTempBad ? 'val-red val-pulse' : ''}" ${x.externalTemperature == null ? `title="${esc(t('noProbe'))}"` : ''}>${extTemp}<span class="unit">°C</span></div>
           </div>
           <div class="metric span2">
             <div class="label">${esc(t('humidity'))}</div>
