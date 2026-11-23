@@ -1,0 +1,114 @@
+[
+  {
+    "name": "TE014G07",
+    "ip": "10.62.62.13",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 208c"
+  },
+  {
+    "name": "TE016237",
+    "ip": "10.62.62.15",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 208c"
+  },
+  {
+    "name": "TE013G36A",
+    "ip": "10.62.62.7",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 204"
+  },
+  {
+    "name": "TE013236",
+    "ip": "10.62.62.9",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 204"
+  },
+  {
+    "name": "TE01419",
+    "ip": "10.62.62.4",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 204"
+  },
+  {
+    "name": "TE01336",
+    "ip": "10.62.62.10",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 204"
+  },
+  {
+    "name": "--",
+    "ip": "10.62.62.16",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 208c"
+  },
+  {
+    "name": "TE016439A",
+    "ip": "10.62.62.17",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 208c"
+  },
+  {
+    "name": "TE016439B",
+    "ip": "10.62.62.18",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 208c"
+  },
+  {
+    "name": "---",
+    "ip": "10.62.62.19",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 208c"
+  },
+  {
+    "name": "TE031160",
+    "ip": "10.62.62.20",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 208c"
+  },
+  {
+    "name": "TE031226",
+    "ip": "10.62.62.21",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 204"
+  },
+  {
+    "name": "TE032234",
+    "ip": "10.62.62.25",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 204"
+  },
+  {
+    "name": "RZ3?",
+    "ip": "10.62.62.26",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 208c"
+  }
+]

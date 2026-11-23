@@ -19,6 +19,7 @@ const MAX_CSV_BYTES = 2 * 1024 * 1024;
 const ROOT = __dirname;
 const INVENTORY_FILE = path.join(ROOT, 'inventory.csv');
 const HISTORY_FILE = path.join(ROOT, 'local-consumption.json');
+const UPS_FILE = path.join(ROOT, 'riello-ups.json');
 const HISTORY_DAYS = 30;
 
 // Janitza active power sum: float32 at register 19026 (W).
@@ -36,6 +37,9 @@ let pollRunning = false;
 let transactionId = 1;
 let lastPollAt = null;
 let history = { version: 2, calculation: 'sampled-power-integration-v1', meters: {} };
+let upsDevices = [];
+let upsReadings = new Map();
+let upsPollRunning = false;
 
 function localDateKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -66,6 +70,27 @@ function loadLocalData() {
   } catch (error) {
     console.warn(`Could not read ${path.basename(INVENTORY_FILE)}: ${error.message}`);
   }
+  try {
+    if (fs.existsSync(UPS_FILE)) {
+      const savedUps = JSON.parse(fs.readFileSync(UPS_FILE, 'utf8'));
+      if (Array.isArray(savedUps)) upsDevices = savedUps.map(makeUpsDevice).filter(Boolean);
+      if (upsDevices.length) console.log(`Loaded ${upsDevices.length} Riello UPS devices.`);
+    }
+  } catch (error) { console.warn(`Could not read ${path.basename(UPS_FILE)}: ${error.message}`); }
+}
+
+function makeUpsDevice(input) {
+  const meter = makeMeter({ ...input, model: input.card || input.model || 'NetMan 208', description: input.description || input.name });
+  if (!meter || !String(input.name || '').trim()) return null;
+  const card = String(input.card || input.model || 'NetMan 208').trim();
+  if (!/^NetMan\s*(204|208c?)$/i.test(card)) return null;
+  return { name: meter.name, ip: meter.ip, port: meter.port, unitId: meter.unitId, timeoutMs: meter.timeoutMs, card: card.replace(/\s+/g, ' ').replace(/208c/i, '208c') };
+}
+
+function serializeUps(items) {
+  const quote = value => `"${String(value ?? '').replace(/"/g, '""')}"`;
+  return [['name', 'ip', 'card', 'port', 'unitId', 'timeoutMs'], ...items.map(x => [x.name, x.ip, x.card, x.port, x.unitId, x.timeoutMs])]
+    .map(row => row.map(quote).join(',')).join('\r\n') + '\r\n';
 }
 
 function updateHistory(meter, powerKw, at = new Date()) {
@@ -311,8 +336,52 @@ async function pollAll() {
   } finally { pollRunning = false; }
 }
 
+function usableRegister(value) { return value === 0xffff ? null : value; }
+
+async function pollUpsDevice(device) {
+  const endpoint = makeMeter({ name: device.name, ip: device.ip, port: device.port, unitId: device.unitId, timeoutMs: device.timeoutMs, model: device.card });
+  try {
+    const battery = await readHoldingRegisters(endpoint, 51, 1);
+    const autonomy = await readHoldingRegisters(endpoint, 53, 1);
+    const internalTemperature = await readHoldingRegisters(endpoint, 61, 1);
+    let externalTemperature = null, humidity = null, sensorStatus = null, sensorError = '';
+    try {
+      const sensor = await readHoldingRegisters(endpoint, 221, 4);
+      const rawTemp = usableRegister(sensor[0]); // Register 221: Ambient temperature
+      const rawHum = usableRegister(sensor[3]);  // Register 224: Ambient humidity
+      if (rawTemp != null) {
+        externalTemperature = rawTemp > 70 ? Number((rawTemp / 10).toFixed(1)) : rawTemp;
+      }
+      if (rawHum != null) {
+        humidity = rawHum > 100 ? Number((rawHum / 10).toFixed(1)) : rawHum;
+      }
+    } catch (error) { sensorError = error.message; }
+    upsReadings.set(device.name, {
+      batteryPercent: usableRegister(battery[0]),
+      autonomyMinutes: usableRegister(autonomy[0]),
+      internalTemperature: usableRegister(internalTemperature[0]),
+      externalTemperature, humidity, sensorStatus, sensorError,
+      connected: true, error: '', updatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    const previous = upsReadings.get(device.name) || {};
+    upsReadings.set(device.name, { ...previous, connected: false, error: error.message, updatedAt: new Date().toISOString() });
+  }
+}
+
+async function pollAllUps() {
+  if (upsPollRunning || !upsDevices.length) return;
+  upsPollRunning = true;
+  try { await Promise.all(upsDevices.map(pollUpsDevice)); }
+  finally { upsPollRunning = false; }
+}
+
+async function saveUpsInventory() {
+  await fs.promises.writeFile(UPS_FILE, JSON.stringify(upsDevices, null, 2), 'utf8');
+}
+
 function sendJson(res, code, data) {
-  res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'access-control-allow-origin': 'http://127.0.0.1:8080' });
+  res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', 'access-control-allow-origin': '*' });
   res.end(JSON.stringify(data));
 }
 
@@ -329,6 +398,31 @@ const server = http.createServer((req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET,POST,OPTIONS', 'access-control-allow-headers': 'content-type' });
     return res.end();
+  }
+  if (req.method === 'POST' && req.url === '/api/ups/inventory') {
+    let body = '', size = 0;
+    req.on('data', chunk => { size += chunk.length; if (size > MAX_CSV_BYTES) { req.destroy(); return; } body += chunk.toString('utf8'); });
+    req.on('end', async () => {
+      let input;
+      try { input = JSON.parse(body); } catch { return sendJson(res, 400, { error: 'Inventario Riello no válido.' }); }
+      if (!Array.isArray(input)) return sendJson(res, 400, { error: 'El inventario debe ser una lista de UPS.' });
+      const parsed = input.map(makeUpsDevice);
+      if (parsed.some(x => !x) || parsed.length > 500) return sendJson(res, 400, { error: 'Revisa nombre, IP y tipo de tarjeta en el inventario.' });
+      const names = new Set();
+      for (const item of parsed) { const key = item.name.toLowerCase(); if (names.has(key)) return sendJson(res, 400, { error: `Nombre duplicado: ${item.name}` }); names.add(key); }
+      try { upsDevices = parsed; upsReadings = new Map(); await saveUpsInventory(); }
+      catch (error) { return sendJson(res, 500, { error: `No se pudo guardar el inventario Riello: ${error.message}` }); }
+      pollAllUps();
+      return sendJson(res, 200, { count: upsDevices.length });
+    });
+    return;
+  }
+  if (req.method === 'GET' && req.url === '/api/ups/readings') {
+    return sendJson(res, 200, { devices: upsDevices.map(device => ({ ...device, ...(upsReadings.get(device.name) || { connected: false, error: 'Esperando primera lectura' }) })), pollIntervalMs: POLL_MS, pollRunning: upsPollRunning });
+  }
+  if (req.method === 'GET' && req.url === '/api/ups/export') {
+    res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': 'attachment; filename="riello-ups-inventory.csv"', 'cache-control': 'no-store' });
+    return res.end(serializeUps(upsDevices));
   }
   if (req.method === 'POST' && req.url === '/api/devices') {
     let body = '', size = 0;
@@ -416,6 +510,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && req.url === '/api/health') return sendJson(res, 200, { ok: true, meterCount: meters.length, lastPollAt, pollRunning });
   if (req.method === 'GET' && (req.url === '/' || req.url === '/index.html')) return serveFile(res, path.join(ROOT, 'index.html'));
   if (req.method === 'GET' && req.url.startsWith('/history.html')) return serveFile(res, path.join(ROOT, 'history.html'));
+  if (req.method === 'GET' && req.url === '/ups.html') return serveFile(res, path.join(ROOT, 'ups.html'));
   if (req.method === 'GET' && req.url === '/server.js') return sendJson(res, 404, { error: 'Not found' });
   return sendJson(res, 404, { error: 'Not found' });
 });
@@ -450,6 +545,7 @@ server.listen(PORT, HOST, () => {
   printAccessUrls();
   console.log(`Modbus polling interval: ${POLL_MS} ms; timeout: ${TIMEOUT_MS} ms`);
   if (meters.length) pollAll();
+  if (upsDevices.length) pollAllUps();
   if (process.env.OPEN_BROWSER === '1' && process.platform === 'win32') {
     const { spawn } = require('node:child_process');
     spawn('cmd.exe', ['/c', 'start', '', `http://127.0.0.1:${PORT}`], {
@@ -458,4 +554,5 @@ server.listen(PORT, HOST, () => {
   }
 });
 setInterval(pollAll, POLL_MS).unref();
+setInterval(pollAllUps, POLL_MS).unref();
 

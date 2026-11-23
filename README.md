@@ -1,5 +1,7 @@
 # Janitza Monitor ⚡
 
+The Riello UPS view is available at `http://127.0.0.1:8080/ups.html`. It lets you monitor Riello UPS devices with NetMan 204, 208, or 208c cards in real time over Modbus TCP (battery level, autonomy runtime, internal temperature, and environmental sensor readings), manage the device inventory, and import/export the list as CSV.
+
 A local dashboard for reading Janitza meters over Modbus TCP. The CSV inventory provides each meter's IP address, port, unit ID, model, and description. Live active power (kW) is read from each meter; energy consumption is calculated and tracked locally by this dashboard.
 
 ## 🚀 Getting started
