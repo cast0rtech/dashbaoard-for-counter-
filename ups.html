@@ -52,9 +52,11 @@
     }
 
     .shell {
-      max-width: 1440px;
-      margin: auto;
-      padding: 30px 40px 52px
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      padding: 24px clamp(16px, 2.2vw, 40px) 44px;
+      box-sizing: border-box;
     }
 
     .top,
@@ -179,8 +181,60 @@
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 14px
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+      gap: 12px;
+      width: 100%;
+    }
+
+    /* 16:9 & 16:10 multi-resolution adaptive card layout */
+    @media (min-width: 1180px) {
+      .grid {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 14px;
+      }
+    }
+
+    @media (min-width: 1540px) {
+      .grid {
+        grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+        gap: 14px;
+      }
+    }
+
+    @media (min-width: 1880px) {
+      .grid {
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 16px;
+      }
+      .card {
+        padding: 20px;
+      }
+    }
+
+    @media (min-width: 2500px) {
+      .grid {
+        grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+        gap: 18px;
+      }
+      .name {
+        font-size: 17px;
+      }
+      .value {
+        font-size: 24px;
+      }
+    }
+
+    @media (min-width: 3400px) {
+      .grid {
+        grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+        gap: 22px;
+      }
+      .name {
+        font-size: 19px;
+      }
+      .value {
+        font-size: 26px;
+      }
     }
 
     /* Dynamic Card Borders (Green vs Red/Warning) */
@@ -281,41 +335,46 @@
     .metrics {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 9px;
-      margin-top: 17px
+      gap: 8px;
+      margin-top: 14px;
     }
 
     .metric {
       background: var(--panel2);
       border-radius: 11px;
-      padding: 12px;
+      padding: 10px 12px;
       border: 1px solid var(--line);
+      min-width: 0;
     }
 
     .metric.span2 {
-      grid-column: span 2
+      grid-column: span 2;
     }
 
     .metric .label {
       font-size: 9px;
-      letter-spacing: .09em
+      letter-spacing: .09em;
     }
 
     .value {
-      font: 500 23px ui-monospace, monospace;
-      margin-top: 8px;
-      letter-spacing: -.04em;
+      font: 500 21px ui-monospace, monospace;
+      margin-top: 6px;
+      letter-spacing: -.03em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .value.val-red {
       color: #e74c3c !important;
-      font-weight: 700
+      font-weight: 700;
     }
 
     .unit {
-      font: 500 11px Inter;
+      font: 500 11px Inter, sans-serif;
       color: var(--muted);
-      margin-left: 4px
+      margin-left: 2px;
+      margin-right: 3px;
     }
 
     .foot {
@@ -774,14 +833,14 @@
           toastImported: n => `Se importaron ${n} UPS correctamente.`,
           toastNoExport: 'No hay equipos configurados para exportar.',
           noProbe: 'Sonda ambiental no detectada en la tarjeta (o no conectada)',
-          optimalState: 'Condiciones óptimas: Temp. ext < 25°C, Temp. int normal (30–35°C), Autonomía > 30m, Batería > 30%',
+          optimalState: 'Condiciones óptimas: Temp. ext < 25°C, Temp. int normal (30–35°C), Autonomía > 30 min (0h 30min), Batería > 30%',
           warningState: 'Alerta: valores fuera de rango o fallo de conexión',
           alarmHeadText: '🚨 ALARMA CRÍTICA DE UPS',
           alarmBadge: 'Activa',
           silenceAlarmBtn: 'Aceptar / Silenciar alarma',
           alarmLostConnection: 'Pérdida de conexión Modbus TCP',
           alarmBatLow: bat => `Batería baja: ${bat}% (requerido > 30%)`,
-          alarmAutLow: aut => `Autonomía baja: ${aut} min (requerido > 30 min)`,
+          alarmAutLow: aut => `Autonomía baja: ${aut} (requerido > 30 min / 0h 30min)`,
           alarmIntTemp24h: (temp, h) => `Temperatura interna crítica: ${temp}°C durante más de 24h (${h}h continuas a ≥ 40°C)`,
           intTempNormal: 'Rango normal de operación (30 a 35 °C)',
           intTempOvertempWarn: h => `Temperatura ≥ 40°C durante ${h}h (grave si supera 24h)`,
@@ -830,14 +889,14 @@
           toastImported: n => `Successfully imported ${n} UPS devices.`,
           toastNoExport: 'No configured devices to export.',
           noProbe: 'Environmental probe not detected on card (or not connected)',
-          optimalState: 'Optimal conditions: Ext. temp < 25°C, Normal int. temp (30–35°C), Runtime > 30m, Battery > 30%',
+          optimalState: 'Optimal conditions: Ext. temp < 25°C, Normal int. temp (30–35°C), Runtime > 30 min (0h 30min), Battery > 30%',
           warningState: 'Alert: values outside optimal range or connection loss',
           alarmHeadText: '🚨 CRITICAL UPS ALARM',
           alarmBadge: 'Active',
           silenceAlarmBtn: 'Acknowledge / Silence alarm',
           alarmLostConnection: 'Lost Modbus TCP connection',
           alarmBatLow: bat => `Low battery: ${bat}% (required > 30%)`,
-          alarmAutLow: aut => `Low runtime: ${aut} min (required > 30 min)`,
+          alarmAutLow: aut => `Low runtime: ${aut} (required > 30 min / 0h 30min)`,
           alarmIntTemp24h: (temp, h) => `Critical internal temperature: ${temp}°C sustained for more than 24h (${h}h continuous at ≥ 40°C)`,
           intTempNormal: 'Normal operating range (30 to 35 °C)',
           intTempOvertempWarn: h => `Temperature ≥ 40°C for ${h}h (critical if exceeding 24h)`,
@@ -886,14 +945,14 @@
           toastImported: n => `${n} USV erfolgreich importiert.`,
           noExportToast: 'Keine konfigurierten Geräte zum Exportieren.',
           noProbe: 'Kein Umgebungssensor an der Karte erkannt (oder nicht angeschlossen)',
-          optimalState: 'Optimaler Zustand: Ext. Temp < 25°C, Normale Int. Temp (30–35°C), Autonomie > 30m, Batterie > 30%',
+          optimalState: 'Optimaler Zustand: Ext. Temp < 25°C, Normale Int. Temp (30–35°C), Autonomie > 30 min (0h 30min), Batterie > 30%',
           warningState: 'Warnung: Werte außerhalb des optimalen Bereichs oder Verbindungsverlust',
           alarmHeadText: '🚨 KRITISCHER USV-ALARM',
           alarmBadge: 'Aktiv',
           silenceAlarmBtn: 'Quittieren / Stummschalten',
           alarmLostConnection: 'Modbus-TCP-Verbindung verloren',
           alarmBatLow: bat => `Niedriger Batteriestand: ${bat}% (erforderlich > 30%)`,
-          alarmAutLow: aut => `Geringe Autonomie: ${aut} min (erforderlich > 30 min)`,
+          alarmAutLow: aut => `Geringe Autonomie: ${aut} (erforderlich > 30 min / 0h 30min)`,
           alarmIntTemp24h: (temp, h) => `Kritische interne Temperatur: ${temp}°C für mehr als 24h gehalten (${h}h kontinuierlich bei ≥ 40°C)`,
           intTempNormal: 'Normaler Betriebsbereich (30 bis 35 °C)',
           intTempOvertempWarn: h => `Temperatur ≥ 40°C seit ${h}h (kritisch bei über 24h)`,
@@ -980,6 +1039,21 @@
 
       const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+      function formatAutonomy(min, asHtml = false) {
+        if (min == null || min === '' || isNaN(min)) return '—';
+        const total = Math.round(Number(min));
+        if (total < 0) return '—';
+        const h = Math.floor(total / 60);
+        const m = total % 60;
+        if (asHtml) {
+          if (h > 0) {
+            return `${h}<span class="unit">h</span> ${m}<span class="unit">min</span>`;
+          }
+          return `0<span class="unit">h</span> ${m}<span class="unit">min</span>`;
+        }
+        return `${h}h ${m}min`;
+      }
+
       function getAlarmReasons(x) {
         const reasons = [];
         if (x.connected === false) {
@@ -989,7 +1063,7 @@
             reasons.push(t('alarmBatLow', x.batteryPercent));
           }
           if (x.autonomyMinutes != null && x.autonomyMinutes <= 30) {
-            reasons.push(t('alarmAutLow', x.autonomyMinutes));
+            reasons.push(t('alarmAutLow', formatAutonomy(x.autonomyMinutes, false)));
           }
           if (x.externalTemperature != null && x.externalTemperature >= 25) {
             reasons.push(t('alarmExtTempHigh', x.externalTemperature));
@@ -1127,7 +1201,9 @@
           const timeStr = x.updatedAt ? new Date(x.updatedAt).toLocaleTimeString(dateLocale) : '';
 
           const bat = x.batteryPercent != null ? x.batteryPercent : '—';
-          const aut = x.autonomyMinutes != null ? x.autonomyMinutes : '—';
+          const autHtml = formatAutonomy(x.autonomyMinutes, true);
+          const autText = formatAutonomy(x.autonomyMinutes, false);
+          const autTitle = x.autonomyMinutes != null ? `${x.autonomyMinutes} min (${autText})` : '';
           const intTemp = x.internalTemperature != null ? x.internalTemperature : '—';
           const extTemp = x.externalTemperature != null ? x.externalTemperature : '—';
           const hum = x.humidity != null ? x.humidity : '—';
@@ -1165,7 +1241,7 @@
           </div>
           <div class="metric">
             <div class="label">${esc(t('autonomy'))}</div>
-            <div class="value ${autBad ? 'val-red' : ''}">${aut}<span class="unit">min</span></div>
+            <div class="value ${autBad ? 'val-red' : ''}" ${autTitle ? `title="${esc(autTitle)}"` : ''}>${autHtml}</div>
           </div>
           <div class="metric">
             <div class="label">${esc(t('internalTemp'))}</div>
