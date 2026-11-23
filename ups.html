@@ -726,7 +726,7 @@
           toastImported: n => `Se importaron ${n} UPS correctamente.`,
           toastNoExport: 'No hay equipos configurados para exportar.',
           noProbe: 'Sonda ambiental no detectada en la tarjeta (o no conectada)',
-          optimalState: 'Condiciones óptimas: Temp < 25°C, Autonomía > 30 min, Batería > 30%',
+          optimalState: 'Condiciones óptimas: Temp. ext < 25°C, Temp. int normal (30–35°C), Autonomía > 30m, Batería > 30%',
           warningState: 'Alerta: valores fuera de rango o fallo de conexión',
           alarmHeadText: '🚨 ALARMA CRÍTICA DE UPS',
           alarmBadge: 'Activa',
@@ -734,8 +734,10 @@
           alarmLostConnection: 'Pérdida de conexión Modbus TCP',
           alarmBatLow: bat => `Batería baja: ${bat}% (requerido > 30%)`,
           alarmAutLow: aut => `Autonomía baja: ${aut} min (requerido > 30 min)`,
-          alarmIntTempHigh: temp => `Temperatura interna alta: ${temp}°C (requerido < 25°C)`,
-          alarmExtTempHigh: temp => `Temperatura externa alta: ${temp}°C (requerido < 25°C)`,
+          alarmIntTemp24h: (temp, h) => `Temperatura interna crítica: ${temp}°C durante más de 24h (${h}h continuas a ≥ 40°C)`,
+          intTempNormal: 'Rango normal de operación (30 a 35 °C)',
+          intTempOvertempWarn: h => `Temperatura ≥ 40°C durante ${h}h (grave si supera 24h)`,
+          alarmExtTempHigh: temp => `Temperatura externa ambiental alta: ${temp}°C (requerido < 25°C)`,
           alarmPillText: n => `${n} ${n === 1 ? 'alarma activa' : 'alarmas activas'}`,
           errName: 'El nombre no puede estar vacío.',
           errIp: 'Introduce una dirección IPv4 válida.',
@@ -778,7 +780,7 @@
           toastImported: n => `Successfully imported ${n} UPS devices.`,
           toastNoExport: 'No configured devices to export.',
           noProbe: 'Environmental probe not detected on card (or not connected)',
-          optimalState: 'Optimal conditions: Temp < 25°C, Runtime > 30 min, Battery > 30%',
+          optimalState: 'Optimal conditions: Ext. temp < 25°C, Normal int. temp (30–35°C), Runtime > 30m, Battery > 30%',
           warningState: 'Alert: values outside optimal range or connection loss',
           alarmHeadText: '🚨 CRITICAL UPS ALARM',
           alarmBadge: 'Active',
@@ -786,8 +788,10 @@
           alarmLostConnection: 'Lost Modbus TCP connection',
           alarmBatLow: bat => `Low battery: ${bat}% (required > 30%)`,
           alarmAutLow: aut => `Low runtime: ${aut} min (required > 30 min)`,
-          alarmIntTempHigh: temp => `High internal temperature: ${temp}°C (required < 25°C)`,
-          alarmExtTempHigh: temp => `High external temperature: ${temp}°C (required < 25°C)`,
+          alarmIntTemp24h: (temp, h) => `Critical internal temperature: ${temp}°C sustained for more than 24h (${h}h continuous at ≥ 40°C)`,
+          intTempNormal: 'Normal operating range (30 to 35 °C)',
+          intTempOvertempWarn: h => `Temperature ≥ 40°C for ${h}h (critical if exceeding 24h)`,
+          alarmExtTempHigh: temp => `High ambient external temperature: ${temp}°C (required < 25°C)`,
           alarmPillText: n => `${n} active ${n === 1 ? 'alarm' : 'alarms'}`,
           errName: 'Name cannot be empty.',
           errIp: 'Please enter a valid IPv4 address.',
@@ -830,7 +834,7 @@
           toastImported: n => `${n} USV erfolgreich importiert.`,
           noExportToast: 'Keine konfigurierten Geräte zum Exportieren.',
           noProbe: 'Kein Umgebungssensor an der Karte erkannt (oder nicht angeschlossen)',
-          optimalState: 'Optimaler Zustand: Temp < 25°C, Autonomie > 30 min, Batterie > 30%',
+          optimalState: 'Optimaler Zustand: Ext. Temp < 25°C, Normale Int. Temp (30–35°C), Autonomie > 30m, Batterie > 30%',
           warningState: 'Warnung: Werte außerhalb des optimalen Bereichs oder Verbindungsverlust',
           alarmHeadText: '🚨 KRITISCHER USV-ALARM',
           alarmBadge: 'Aktiv',
@@ -838,8 +842,10 @@
           alarmLostConnection: 'Modbus-TCP-Verbindung verloren',
           alarmBatLow: bat => `Niedriger Batteriestand: ${bat}% (erforderlich > 30%)`,
           alarmAutLow: aut => `Geringe Autonomie: ${aut} min (erforderlich > 30 min)`,
-          alarmIntTempHigh: temp => `Hohe interne Temperatur: ${temp}°C (erforderlich < 25°C)`,
-          alarmExtTempHigh: temp => `Hohe externe Temperatur: ${temp}°C (erforderlich < 25°C)`,
+          alarmIntTemp24h: (temp, h) => `Kritische interne Temperatur: ${temp}°C für mehr als 24h gehalten (${h}h kontinuierlich bei ≥ 40°C)`,
+          intTempNormal: 'Normaler Betriebsbereich (30 bis 35 °C)',
+          intTempOvertempWarn: h => `Temperatur ≥ 40°C seit ${h}h (kritisch bei über 24h)`,
+          alarmExtTempHigh: temp => `Hohe externe Umgebungstemperatur: ${temp}°C (erforderlich < 25°C)`,
           alarmPillText: n => `${n} aktive ${n === 1 ? 'Alarm' : 'Alarme'}`,
           errName: 'Name darf nicht leer sein.',
           errIp: 'Bitte eine gültige IPv4-Adresse eingeben.',
@@ -931,11 +937,15 @@
           if (x.autonomyMinutes != null && x.autonomyMinutes <= 30) {
             reasons.push(t('alarmAutLow', x.autonomyMinutes));
           }
-          if (x.internalTemperature != null && x.internalTemperature >= 25) {
-            reasons.push(t('alarmIntTempHigh', x.internalTemperature));
-          }
           if (x.externalTemperature != null && x.externalTemperature >= 25) {
             reasons.push(t('alarmExtTempHigh', x.externalTemperature));
+          }
+          if (x.internalTemperature != null && x.internalTemperature >= 40) {
+            const overtempSinceMs = x.overtempSince ? new Date(x.overtempSince).getTime() : Date.now();
+            const elapsedHours = (Date.now() - overtempSinceMs) / 3600000;
+            if (elapsedHours >= 24) {
+              reasons.push(t('alarmIntTemp24h', x.internalTemperature, Math.max(24, Math.floor(elapsedHours))));
+            }
           }
         }
         return reasons;
@@ -1060,8 +1070,21 @@
 
           const batBad = isOnline && x.batteryPercent != null && x.batteryPercent <= 30;
           const autBad = isOnline && x.autonomyMinutes != null && x.autonomyMinutes <= 30;
-          const intTempBad = isOnline && x.internalTemperature != null && x.internalTemperature >= 25;
           const extTempBad = isOnline && x.externalTemperature != null && x.externalTemperature >= 25;
+
+          // Internal temperature logic:
+          // Normal between 30 and 35 °C (and in general < 40 °C).
+          // Critical alarm only if >= 40 °C maintained for more than 24 hours.
+          const overtempSinceMs = x.overtempSince ? new Date(x.overtempSince).getTime() : Date.now();
+          const overtempHours = (Date.now() - overtempSinceMs) / 3600000;
+          const intTempCritical = isOnline && x.internalTemperature != null && x.internalTemperature >= 40 && overtempHours >= 24;
+          const intTempWarning = isOnline && x.internalTemperature != null && x.internalTemperature >= 40 && overtempHours < 24;
+          const intTempNormal = isOnline && x.internalTemperature != null && x.internalTemperature >= 30 && x.internalTemperature <= 35;
+
+          let intTempHint = '';
+          if (intTempCritical) intTempHint = t('alarmIntTemp24h', x.internalTemperature, Math.floor(overtempHours));
+          else if (intTempWarning) intTempHint = t('intTempOvertempWarn', Math.floor(overtempHours));
+          else if (intTempNormal) intTempHint = t('intTempNormal');
 
           return `<article class="card ${cardClass}" title="${esc(cardHint)}">
         <div class="card-top">
@@ -1082,7 +1105,7 @@
           </div>
           <div class="metric">
             <div class="label">${esc(t('internalTemp'))}</div>
-            <div class="value ${intTempBad ? 'val-red' : ''}">${intTemp}<span class="unit">°C</span></div>
+            <div class="value ${intTempCritical ? 'val-red' : ''}" ${intTempHint ? `title="${esc(intTempHint)}"` : ''}>${intTemp}<span class="unit">°C</span></div>
           </div>
           <div class="metric">
             <div class="label">${esc(t('externalTemp'))}</div>

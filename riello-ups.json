@@ -104,11 +104,19 @@
     "card": "NetMan 204"
   },
   {
-    "name": "RZ3?",
-    "ip": "10.62.62.26",
+    "name": "RZ 3",
+    "ip": "10.62.62.98",
     "port": 502,
     "unitId": 1,
     "timeoutMs": 1800,
     "card": "NetMan 208c"
+  },
+  {
+    "name": "RZ 1",
+    "ip": "10.62.62.44",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 208"
   }
 ]

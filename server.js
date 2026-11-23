@@ -40,6 +40,7 @@ let history = { version: 2, calculation: 'sampled-power-integration-v1', meters:
 let upsDevices = [];
 let upsReadings = new Map();
 let upsPollRunning = false;
+const overtempTracker = new Map(); // name -> timestamp ISO when temperature first reached >= 40C
 
 function localDateKey(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -344,6 +345,17 @@ async function pollUpsDevice(device) {
     const battery = await readHoldingRegisters(endpoint, 51, 1);
     const autonomy = await readHoldingRegisters(endpoint, 53, 1);
     const internalTemperature = await readHoldingRegisters(endpoint, 61, 1);
+    const intTemp = usableRegister(internalTemperature[0]);
+    let overtempSince = overtempTracker.get(device.name) || null;
+    if (intTemp != null && intTemp >= 40) {
+      if (!overtempSince) {
+        overtempSince = new Date().toISOString();
+        overtempTracker.set(device.name, overtempSince);
+      }
+    } else if (intTemp != null && intTemp < 40) {
+      overtempSince = null;
+      overtempTracker.delete(device.name);
+    }
     let externalTemperature = null, humidity = null, sensorStatus = null, sensorError = '';
     try {
       const sensor = await readHoldingRegisters(endpoint, 221, 4);
@@ -359,7 +371,8 @@ async function pollUpsDevice(device) {
     upsReadings.set(device.name, {
       batteryPercent: usableRegister(battery[0]),
       autonomyMinutes: usableRegister(autonomy[0]),
-      internalTemperature: usableRegister(internalTemperature[0]),
+      internalTemperature: intTemp,
+      overtempSince,
       externalTemperature, humidity, sensorStatus, sensorError,
       connected: true, error: '', updatedAt: new Date().toISOString(),
     });
