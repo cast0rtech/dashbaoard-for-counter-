@@ -118,5 +118,13 @@
     "unitId": 1,
     "timeoutMs": 1800,
     "card": "NetMan 208"
+  },
+  {
+    "name": "RZ 2",
+    "ip": "10.62.62.45",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 208"
   }
 ]

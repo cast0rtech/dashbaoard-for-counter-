@@ -198,11 +198,48 @@
       background: var(--panel);
       box-shadow: var(--shadow);
       padding: 18px;
-      transition: border-color .2s, box-shadow .2s;
+      transition: border-color .2s, box-shadow .2s, transform .15s, opacity .15s;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       box-sizing: border-box;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .card:active {
+      cursor: grabbing;
+    }
+
+    .card.dragging {
+      opacity: 0.35 !important;
+      transform: scale(0.97);
+      border-style: dashed !important;
+    }
+
+    .card.drag-over {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 3px var(--accent-soft), 0 16px 36px #0004 !important;
+      transform: scale(1.02);
+    }
+
+    .drag-handle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      cursor: grab;
+      font-size: 15px;
+      margin-right: 2px;
+      opacity: 0.45;
+      transition: opacity .15s, color .15s;
+      vertical-align: middle;
+      line-height: 1;
+    }
+
+    .card:hover .drag-handle {
+      opacity: 1;
+      color: var(--accent);
     }
 
     @media (min-width: 1880px) {
@@ -215,6 +252,7 @@
       .name {
         font-size: 17px;
       }
+
       .value {
         font-size: 24px;
       }
@@ -224,6 +262,7 @@
       .name {
         font-size: 19px;
       }
+
       .value {
         font-size: 26px;
       }
@@ -605,13 +644,31 @@
     }
 
     @keyframes pulseGrave {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.08); opacity: 0.85; }
+
+      0%,
+      100% {
+        transform: scale(1);
+        opacity: 1;
+      }
+
+      50% {
+        transform: scale(1.08);
+        opacity: 0.85;
+      }
     }
 
     @keyframes pulseGraveText {
-      0%, 100% { opacity: 1; text-shadow: 0 0 4px #e74c3c66; }
-      50% { opacity: 0.75; text-shadow: 0 0 10px #e74c3caa; }
+
+      0%,
+      100% {
+        opacity: 1;
+        text-shadow: 0 0 4px #e74c3c66;
+      }
+
+      50% {
+        opacity: 0.75;
+        text-shadow: 0 0 10px #e74c3caa;
+      }
     }
 
     .alarm-pill {
@@ -835,6 +892,8 @@
           roomTempCriticalBanner: '🔥 ALERTA GRAVE DE SALA: Temperatura ambiental externa superada. Riesgo para los equipos; revisar climatización / aire acondicionado de inmediato.',
           graveBadge: '¡GRAVE!',
           alarmPillText: n => `${n} ${n === 1 ? 'alarma activa' : 'alarmas activas'}`,
+          dragHandleTitle: 'Arrastra para reordenar por importancia',
+          orderSaved: 'Prioridad de UPS actualizada y guardada.',
           errName: 'El nombre no puede estar vacío.',
           errIp: 'Introduce una dirección IPv4 válida.',
           errDuplicate: name => `Ya existe un equipo con el nombre "${name}".`,
@@ -891,6 +950,8 @@
           roomTempCriticalBanner: '🔥 SEVERE ROOM ALERT: Ambient room temperature exceeded. Risk to equipment; inspect HVAC / cooling immediately.',
           graveBadge: 'CRITICAL!',
           alarmPillText: n => `${n} active ${n === 1 ? 'alarm' : 'alarms'}`,
+          dragHandleTitle: 'Drag to reorder by importance',
+          orderSaved: 'UPS priority updated and saved.',
           errName: 'Name cannot be empty.',
           errIp: 'Please enter a valid IPv4 address.',
           errDuplicate: name => `A device named "${name}" already exists.`,
@@ -947,6 +1008,8 @@
           roomTempCriticalBanner: '🔥 SCHWERER RAUMALARM: Raumumgebungstemperatur überschritten. Gefahr für Geräte; Klimatisierung sofort prüfen.',
           graveBadge: 'KRITISCH!',
           alarmPillText: n => `${n} aktive ${n === 1 ? 'Alarm' : 'Alarme'}`,
+          dragHandleTitle: 'Ziehen, um nach Wichtigkeit zu sortieren',
+          orderSaved: 'USV-Priorität aktualisiert und gespeichert.',
           errName: 'Name darf nicht leer sein.',
           errIp: 'Bitte eine gültige IPv4-Adresse eingeben.',
           errDuplicate: name => `Ein Gerät namens "${name}" existiert bereits.`,
@@ -1213,11 +1276,14 @@
           else if (intTempWarning) intTempHint = t('intTempOvertempWarn', Math.floor(overtempHours));
           else if (intTempNormal) intTempHint = t('intTempNormal');
 
-          return `<article class="card ${cardClass}" title="${esc(cardHint)}">
+          return `<article class="card ${cardClass}" draggable="true" data-index="${i}" title="${esc(cardHint)}">
         <div class="card-top">
-          <div>
-            <div class="name">${esc(x.name)}</div>
-            <div class="meta">${esc(x.card || 'NetMan 208')}</div>
+          <div style="display:flex;align-items:flex-start;gap:6px;">
+            <span class="drag-handle" title="${esc(t('dragHandleTitle'))}">⠿</span>
+            <div>
+              <div class="name">${esc(x.name)}</div>
+              <div class="meta">${esc(x.card || 'NetMan 208')}</div>
+            </div>
           </div>
           <span class="state ${stateClass}" title="${esc(cardHint || stateLabel)}">${stateLabel}</span>
         </div>
@@ -1262,6 +1328,57 @@
             items.splice(idx, 1);
             await syncInventoryWithServer();
           };
+        });
+
+        // Drag and Drop reordering to prioritize windows/cards
+        let draggedCardIndex = null;
+        const cardElements = document.querySelectorAll('#cards .card');
+
+        cardElements.forEach(card => {
+          card.addEventListener('dragstart', e => {
+            if (e.target.closest('button')) {
+              e.preventDefault();
+              return;
+            }
+            draggedCardIndex = Number(card.dataset.index);
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', String(draggedCardIndex));
+            setTimeout(() => card.classList.add('dragging'), 0);
+          });
+
+          card.addEventListener('dragend', () => {
+            card.classList.remove('dragging');
+            cardElements.forEach(c => c.classList.remove('drag-over'));
+            draggedCardIndex = null;
+          });
+
+          card.addEventListener('dragover', e => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            const targetIdx = Number(card.dataset.index);
+            if (draggedCardIndex != null && draggedCardIndex !== targetIdx) {
+              card.classList.add('drag-over');
+            }
+          });
+
+          card.addEventListener('dragleave', () => {
+            card.classList.remove('drag-over');
+          });
+
+          card.addEventListener('drop', async e => {
+            e.preventDefault();
+            card.classList.remove('drag-over');
+            const targetIdx = Number(card.dataset.index);
+            if (draggedCardIndex == null || draggedCardIndex === targetIdx) return;
+
+            // Reorder items
+            const [moved] = items.splice(draggedCardIndex, 1);
+            items.splice(targetIdx, 0, moved);
+
+            render();
+            await syncInventoryWithServer();
+            toast(t('orderSaved'));
+          });
         });
 
         updateGridLayout();
@@ -1334,6 +1451,15 @@
           const serverDevices = data.devices || [];
 
           if (serverDevices.length > 0) {
+            // Preserve manual priority ordering set by the user
+            if (items.length > 0) {
+              const orderMap = new Map(items.map((x, idx) => [x.name.toLowerCase(), idx]));
+              serverDevices.sort((a, b) => {
+                const idxA = orderMap.has(a.name.toLowerCase()) ? orderMap.get(a.name.toLowerCase()) : 999;
+                const idxB = orderMap.has(b.name.toLowerCase()) ? orderMap.get(b.name.toLowerCase()) : 999;
+                return idxA - idxB;
+              });
+            }
             items = serverDevices;
             localStorage.setItem(STORAGE_KEY, JSON.stringify(items.map(x => ({ name: x.name, ip: x.ip, card: x.card }))));
             render();
