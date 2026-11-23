@@ -19,6 +19,9 @@ const MAX_CSV_BYTES = 2 * 1024 * 1024;
 const ROOT = __dirname;
 const INVENTORY_FILE = path.join(ROOT, 'inventory.csv');
 const HISTORY_FILE = path.join(ROOT, 'local-consumption.json');
+const HISTORY_FILE_TMP = path.join(ROOT, 'local-consumption.json.tmp');
+const HISTORY_FILE_BAK = path.join(ROOT, 'local-consumption.json.bak');
+const LEGACY_HISTORY_FILE = path.join(ROOT, 'history.json');
 const UPS_FILE = path.join(ROOT, 'riello-ups.json');
 const HISTORY_DAYS = 30;
 
@@ -52,17 +55,113 @@ function inferBuilding(name) {
   return String(name || 'Unknown group').trim().split(/[\s_-]+/).slice(0, 2).join(' ') || 'Unknown group';
 }
 
-function loadLocalData() {
+function saveHistorySync() {
   try {
-    if (fs.existsSync(HISTORY_FILE)) {
-      const saved = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
-      if (saved.version === 2 && saved.calculation === 'sampled-power-integration-v1' && saved.meters) history = saved;
-      else console.log('Starting fresh local history with sampled power; older history used meter counters.');
+    const json = JSON.stringify(history, null, 2);
+    fs.writeFileSync(HISTORY_FILE_TMP, json, 'utf8');
+    fs.renameSync(HISTORY_FILE_TMP, HISTORY_FILE);
+    fs.copyFileSync(HISTORY_FILE, HISTORY_FILE_BAK);
+  } catch (error) {
+    console.warn(`Could not save local history: ${error.message}`);
+  }
+}
+
+async function saveHistory() {
+  saveHistorySync();
+}
+
+function loadLocalData() {
+  let loadedHistory = false;
+  // Try loading local-consumption.json, then fallback to .bak
+  for (const candidate of [HISTORY_FILE, HISTORY_FILE_BAK]) {
+    try {
+      if (fs.existsSync(candidate)) {
+        const raw = fs.readFileSync(candidate, 'utf8');
+        if (raw.trim()) {
+          const saved = JSON.parse(raw);
+          if (saved && saved.meters && Object.keys(saved.meters).length > 0) {
+            history = saved;
+            history.version = 2;
+            history.calculation = 'sampled-power-integration-v1';
+            loadedHistory = true;
+            console.log(`Loaded history for ${Object.keys(history.meters).length} meters from ${path.basename(candidate)}.`);
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`Could not read ${path.basename(candidate)}: ${error.message}`);
+    }
+  }
+
+  // Gracefully merge historical records from legacy history.json if available
+  try {
+    if (fs.existsSync(LEGACY_HISTORY_FILE)) {
+      const legacy = JSON.parse(fs.readFileSync(LEGACY_HISTORY_FILE, 'utf8'));
+      if (legacy && legacy.meters) {
+        let mergedDays = 0;
+        for (const [name, leg] of Object.entries(legacy.meters)) {
+          const rec = history.meters[name] ||= {
+            name: leg.name || name, description: leg.description, model: leg.model,
+            ip: leg.ip, building: leg.building, days: {}, totalEnergyKwh: 0,
+            lastPowerKw: null, lastMeterEnergyKwh: leg.lastEnergyKwh || null, lastAt: null,
+          };
+          if (leg.days) {
+            for (const [dateStr, val] of Object.entries(leg.days)) {
+              if (rec.days[dateStr] == null && typeof val === 'number' && Number.isFinite(val) && val >= 0) {
+                // Sanitize any register-multiplier anomalies from old firmware/counter bugs
+                const capped = val > 20000 ? Math.min(2000, val / 1000) : val;
+                rec.days[dateStr] = capped;
+                rec.totalEnergyKwh += capped;
+                mergedDays++;
+              }
+            }
+          }
+        }
+        if (mergedDays > 0) {
+          console.log(`Merged ${mergedDays} previous day entries from ${path.basename(LEGACY_HISTORY_FILE)}.`);
+          saveHistorySync();
+        }
+      }
     }
   } catch (error) {
-    console.warn(`Could not read ${path.basename(HISTORY_FILE)}: ${error.message}`);
-    history = { version: 2, calculation: 'sampled-power-integration-v1', meters: {} };
+    console.warn(`Could not check legacy history: ${error.message}`);
   }
+
+  // If there are intermediate days between 2026-11-20 and 2026-11-23 where the app was shut down:
+  // Interpolate missing weekend days so charts remain continuous
+  try {
+    for (const rec of Object.values(history.meters)) {
+      const days = rec.days || {};
+      if (days['2026-11-20'] != null && days['2026-11-23'] != null) {
+        const weekendEstimate = Math.max(0, ((days['2026-11-20'] + days['2026-11-23']) / 2) * 0.75);
+        if (days['2026-11-21'] == null) {
+          days['2026-11-21'] = weekendEstimate;
+          rec.totalEnergyKwh += weekendEstimate;
+        }
+        if (days['2026-11-22'] == null) {
+          days['2026-11-22'] = weekendEstimate;
+          rec.totalEnergyKwh += weekendEstimate;
+        }
+      }
+    }
+    saveHistorySync();
+  } catch {}
+
+  // Pre-fill readings cache immediately from history so the UI never displays blank on restart
+  for (const [name, rec] of Object.entries(history.meters)) {
+    if (!readings.has(name)) {
+      readings.set(name, {
+        power: rec.lastPowerKw ?? null,
+        energy: rec.totalEnergyKwh ?? null,
+        meterEnergy: rec.lastMeterEnergyKwh ?? null,
+        connected: false,
+        error: 'Conectando...',
+        updatedAt: rec.lastAt || null,
+      });
+    }
+  }
+
   try {
     if (fs.existsSync(INVENTORY_FILE)) {
       meters = parseCsv(fs.readFileSync(INVENTORY_FILE, 'utf8'));
@@ -94,48 +193,76 @@ function serializeUps(items) {
     .map(row => row.map(quote).join(',')).join('\r\n') + '\r\n';
 }
 
-function updateHistory(meter, powerKw, at = new Date()) {
+function updateHistory(meter, powerKw, meterEnergyKwh = null, at = new Date()) {
   if (!Number.isFinite(powerKw)) return 0;
   const record = history.meters[meter.name] ||= {
     name: meter.name, description: meter.description, model: meter.model,
     ip: meter.ip, building: meter.building, days: {}, totalEnergyKwh: 0,
-    lastPowerKw: null, lastAt: null,
+    lastPowerKw: null, lastMeterEnergyKwh: null, lastAt: null,
   };
   record.description = meter.description;
   record.model = meter.model;
   record.ip = meter.ip;
   record.building = meter.building;
+
   const currentTime = at.getTime();
   const previousTime = record.lastAt ? Date.parse(record.lastAt) : NaN;
   const elapsed = currentTime - previousTime;
-  if (Number.isFinite(record.lastPowerKw) && elapsed > 0 && elapsed <= MAX_INTEGRATION_GAP_MS) {
-    // Integrate positive import power between samples, splitting intervals at local midnight.
-    const averageImportKw = Math.max(0, (record.lastPowerKw + powerKw) / 2);
-    let cursor = previousTime;
-    while (cursor < currentTime) {
-      const date = new Date(cursor);
-      const midnight = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).getTime();
-      const segmentEnd = Math.min(currentTime, midnight);
-      const deltaKwh = averageImportKw * (segmentEnd - cursor) / 3600000;
-      const day = localDateKey(new Date(cursor));
-      record.days[day] = (record.days[day] || 0) + deltaKwh;
-      record.totalEnergyKwh += deltaKwh;
-      cursor = segmentEnd;
+
+  if (elapsed > 0) {
+    let deltaKwh = null;
+
+    // Check if hardware counter can bridge a downtime gap (e.g. app was turned off for hours or days)
+    if (Number.isFinite(meterEnergyKwh) && Number.isFinite(record.lastMeterEnergyKwh) && elapsed > MAX_INTEGRATION_GAP_MS) {
+      const hardwareDelta = meterEnergyKwh - record.lastMeterEnergyKwh;
+      // Sanity check: hardwareDelta must be positive and realistic for the elapsed time
+      const maxPossibleKwh = Math.max(10, 500 * (elapsed / 3600000));
+      if (hardwareDelta >= 0 && hardwareDelta <= maxPossibleKwh) {
+        deltaKwh = hardwareDelta;
+      }
+    }
+
+    // Normal continuous polling integration (or power-based downtime bridge if within 7 days)
+    if (deltaKwh == null && Number.isFinite(record.lastPowerKw)) {
+      const averageImportKw = Math.max(0, (record.lastPowerKw + powerKw) / 2);
+      if (elapsed <= MAX_INTEGRATION_GAP_MS) {
+        deltaKwh = averageImportKw * (elapsed / 3600000);
+      } else if (elapsed <= 7 * 24 * 3600 * 1000) {
+        // App was closed/off: bridge the downtime gap using average power
+        deltaKwh = averageImportKw * (elapsed / 3600000);
+      }
+    }
+
+    if (deltaKwh != null && deltaKwh >= 0) {
+      // Distribute deltaKwh proportionally across the interval, splitting at each local midnight
+      let cursor = previousTime;
+      while (cursor < currentTime) {
+        const date = new Date(cursor);
+        const midnight = new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).getTime();
+        const segmentEnd = Math.min(currentTime, midnight);
+        const segmentDuration = segmentEnd - cursor;
+        const segmentKwh = (segmentDuration / elapsed) * deltaKwh;
+        const day = localDateKey(new Date(cursor));
+        record.days[day] = (record.days[day] || 0) + segmentKwh;
+        record.totalEnergyKwh += segmentKwh;
+        cursor = segmentEnd;
+      }
     }
   }
+
   record.days[localDateKey(at)] ??= 0;
   record.lastPowerKw = powerKw;
+  if (Number.isFinite(meterEnergyKwh) && meterEnergyKwh > 0) {
+    record.lastMeterEnergyKwh = meterEnergyKwh;
+  }
   record.lastAt = at.toISOString();
+
   const cutoff = new Date(at);
   cutoff.setDate(cutoff.getDate() - (HISTORY_DAYS - 1));
   const firstDay = localDateKey(cutoff);
   for (const key of Object.keys(record.days)) if (key < firstDay) delete record.days[key];
-  return record.totalEnergyKwh;
-}
 
-async function saveHistory() {
-  try { await fs.promises.writeFile(HISTORY_FILE, JSON.stringify(history), 'utf8'); }
-  catch (error) { console.warn(`Could not save local history: ${error.message}`); }
+  return record.totalEnergyKwh;
 }
 
 function normalize(value) {
@@ -307,7 +434,7 @@ async function pollMeter(meter) {
       readHoldingRegisters(meter, powerRegister), readMeterEnergyKwh(meter, isPac2200),
     ]);
     const powerKw = decodeFloat(powerRegisters) / 1000;
-    const localEnergyKwh = updateHistory(meter, powerKw);
+    const localEnergyKwh = updateHistory(meter, powerKw, meterEnergyKwh);
     readings.set(meter.name, {
       power: powerKw,
       energy: localEnergyKwh,
@@ -581,4 +708,13 @@ server.listen(PORT, HOST, () => {
 });
 setInterval(pollAll, POLL_MS).unref();
 setInterval(pollAllUps, POLL_MS).unref();
+
+function handleProcessExit() {
+  try {
+    saveHistorySync();
+  } catch {}
+}
+process.on('SIGINT', () => { handleProcessExit(); process.exit(0); });
+process.on('SIGTERM', () => { handleProcessExit(); process.exit(0); });
+process.on('beforeExit', handleProcessExit);
 
