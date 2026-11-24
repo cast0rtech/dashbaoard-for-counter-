@@ -272,6 +272,11 @@
       box-shadow: 0 0 0 1px #1db37444, 0 12px 38px #1db37418;
     }
 
+    .card.card-warn {
+      border-color: #f39c12 !important;
+      box-shadow: 0 0 0 1px #f39c1255, 0 12px 38px #f39c1222;
+    }
+
     .card.card-red {
       border-color: #e74c3c !important;
       box-shadow: 0 0 0 1px #e74c3c55, 0 12px 38px #e74c3c22;
@@ -286,6 +291,11 @@
     [data-theme=dark] .card.card-healthy {
       border-color: #2ecc71 !important;
       box-shadow: 0 0 0 1px #2ecc7155, 0 12px 38px #2ecc7122;
+    }
+
+    [data-theme=dark] .card.card-warn {
+      border-color: #f39c12 !important;
+      box-shadow: 0 0 0 1px #f39c1266, 0 12px 38px #f39c1233;
     }
 
     [data-theme=dark] .card.card-red {
@@ -351,6 +361,12 @@
       border: 1px solid #e74c3c44
     }
 
+    .state.warn {
+      background: rgba(243, 156, 18, 0.16);
+      color: #f39c12;
+      border: 1px solid #f39c1244;
+    }
+
     .metrics {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -386,6 +402,16 @@
 
     .value.val-red {
       color: #e74c3c !important;
+      font-weight: 700;
+    }
+
+    .value.val-orange {
+      color: #f39c12 !important;
+      font-weight: 700;
+    }
+
+    .value.val-green {
+      color: #2ecc71 !important;
       font-weight: 700;
     }
 
@@ -630,6 +656,19 @@
       letter-spacing: .02em;
       vertical-align: middle;
       animation: pulseGrave 1.2s infinite;
+    }
+
+    .warn-orange-badge {
+      display: inline-block;
+      background: #f39c12;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 4px;
+      margin-left: 4px;
+      letter-spacing: .02em;
+      vertical-align: middle;
     }
 
     .alarm-item-severe {
@@ -879,7 +918,9 @@
           toastImported: n => `Se importaron ${n} UPS correctamente.`,
           toastNoExport: 'No hay equipos configurados para exportar.',
           noProbe: 'Sonda ambiental no detectada en la tarjeta (o no conectada)',
-          optimalState: 'Condiciones óptimas: Temp. ext < 25°C, Temp. int normal (hasta 40°C), Autonomía > 30 min (0h 30min), Batería > 30%',
+          stateWarn: 'Aviso',
+          warnBadge: 'AVISO',
+          optimalState: 'Condiciones óptimas: Temp. ext 20 a 25°C (verde), Temp. int normal (hasta 40°C), Autonomía > 30 min (0h 30min), Batería > 30%',
           warningState: 'Alerta: valores fuera de rango o fallo de conexión',
           alarmHeadText: '🚨 ALARMA CRÍTICA DE UPS',
           alarmBadge: 'Activa',
@@ -892,8 +933,11 @@
           alarmIntTemp24h: (temp, h) => `Temperatura interna crítica: ${temp}°C durante más de 24h (${h}h continuas a > 40°C)`,
           intTempNormal: 'Temperatura normal de operación (hasta 40 °C)',
           intTempOvertempWarn: h => `Temperatura > 40°C durante ${h}h (grave si supera 24h)`,
-          alarmExtTempHigh: temp => `🚨 ALARMA GRAVE (CLIMA DE SALA): Temperatura ambiental externa de ${temp}°C (límite crítico < 25°C)`,
-          roomTempCriticalBanner: '🔥 ALERTA GRAVE DE SALA: Temperatura ambiental externa superada. Riesgo para los equipos; revisar climatización / aire acondicionado de inmediato.',
+          alarmExtTempHigh: temp => `🚨 ALARMA GRAVE (CLIMA DE SALA): Temperatura ambiental externa de ${temp}°C (crítico ≥ 35°C)`,
+          extTempWarn: temp => `Aviso: Temperatura ambiental de ${temp}°C (rango advertencia 25 a 35°C)`,
+          extTempOptimal: 'Temperatura ambiental óptima (20 a 25°C)',
+          extTempCool: 'Temperatura ambiental (< 20°C)',
+          roomTempCriticalBanner: '🔥 ALERTA GRAVE DE SALA: Temperatura ambiental externa crítica (≥ 35°C). Riesgo inmediato para los equipos; revisar climatización / aire acondicionado.',
           graveBadge: '¡GRAVE!',
           alarmPillText: n => `${n} ${n === 1 ? 'alarma activa' : 'alarmas activas'}`,
           dragHandleTitle: 'Arrastra para reordenar por importancia',
@@ -939,7 +983,9 @@
           toastImported: n => `Successfully imported ${n} UPS devices.`,
           toastNoExport: 'No configured devices to export.',
           noProbe: 'Environmental probe not detected on card (or not connected)',
-          optimalState: 'Optimal conditions: Ext. temp < 25°C, Normal int. temp (up to 40°C), Runtime > 30 min (0h 30min), Battery > 30%',
+          stateWarn: 'Warning',
+          warnBadge: 'WARNING',
+          optimalState: 'Optimal conditions: Ext. temp 20 to 25°C (green), Normal int. temp (up to 40°C), Runtime > 30 min (0h 30min), Battery > 30%',
           warningState: 'Alert: values outside optimal range or connection loss',
           alarmHeadText: '🚨 CRITICAL UPS ALARM',
           alarmBadge: 'Active',
@@ -952,8 +998,11 @@
           alarmIntTemp24h: (temp, h) => `Critical internal temperature: ${temp}°C sustained for more than 24h (${h}h continuous at > 40°C)`,
           intTempNormal: 'Normal operating temperature (up to 40 °C)',
           intTempOvertempWarn: h => `Temperature > 40°C for ${h}h (critical if exceeding 24h)`,
-          alarmExtTempHigh: temp => `🚨 SEVERE ALARM (ROOM CLIMATE): External ambient temperature of ${temp}°C (critical limit < 25°C)`,
-          roomTempCriticalBanner: '🔥 SEVERE ROOM ALERT: Ambient room temperature exceeded. Risk to equipment; inspect HVAC / cooling immediately.',
+          alarmExtTempHigh: temp => `🚨 SEVERE ALARM (ROOM CLIMATE): External ambient temperature of ${temp}°C (critical ≥ 35°C)`,
+          extTempWarn: temp => `Warning: Elevated ambient temperature of ${temp}°C (warning range 25 to 35°C)`,
+          extTempOptimal: 'Optimal ambient temperature (20 to 25°C)',
+          extTempCool: 'Ambient temperature (< 20°C)',
+          roomTempCriticalBanner: '🔥 SEVERE ROOM ALERT: Ambient room temperature critical (≥ 35°C). Immediate risk to equipment; inspect HVAC / cooling.',
           graveBadge: 'CRITICAL!',
           alarmPillText: n => `${n} active ${n === 1 ? 'alarm' : 'alarms'}`,
           dragHandleTitle: 'Drag to reorder by importance',
@@ -999,7 +1048,9 @@
           toastImported: n => `${n} USV erfolgreich importiert.`,
           noExportToast: 'Keine konfigurierten Geräte zum Exportieren.',
           noProbe: 'Kein Umgebungssensor an der Karte erkannt (oder nicht angeschlossen)',
-          optimalState: 'Optimaler Zustand: Ext. Temp < 25°C, Normale Int. Temp (bis zu 40°C), Autonomie > 30 min (0h 30min), Batterie > 30%',
+          stateWarn: 'Warnung',
+          warnBadge: 'WARNUNG',
+          optimalState: 'Optimaler Zustand: Ext. Temp 20 bis 25°C (grün), Normale Int. Temp (bis zu 40°C), Autonomie > 30 min (0h 30min), Batterie > 30%',
           warningState: 'Warnung: Werte außerhalb des optimalen Bereichs oder Verbindungsverlust',
           alarmHeadText: '🚨 KRITISCHER USV-ALARM',
           alarmBadge: 'Aktiv',
@@ -1012,8 +1063,11 @@
           alarmIntTemp24h: (temp, h) => `Kritische interne Temperatur: ${temp}°C für mehr als 24h gehalten (${h}h kontinuierlich bei > 40°C)`,
           intTempNormal: 'Normale Betriebstemperatur (bis zu 40 °C)',
           intTempOvertempWarn: h => `Temperatur > 40°C seit ${h}h (kritisch bei über 24h)`,
-          alarmExtTempHigh: temp => `🚨 SCHWERER ALARM (RAUMKLIMA): Externe Umgebungstemperatur von ${temp}°C (kritischer Grenzwert < 25°C)`,
-          roomTempCriticalBanner: '🔥 SCHWERER RAUMALARM: Raumumgebungstemperatur überschritten. Gefahr für Geräte; Klimatisierung sofort prüfen.',
+          alarmExtTempHigh: temp => `🚨 SCHWERER ALARM (RAUMKLIMA): Externe Umgebungstemperatur von ${temp}°C (kritisch ≥ 35°C)`,
+          extTempWarn: temp => `Warnung: Erhöhte Umgebungstemperatur von ${temp}°C (Warnbereich 25 bis 35°C)`,
+          extTempOptimal: 'Optimale Umgebungstemperatur (20 bis 25°C)',
+          extTempCool: 'Umgebungstemperatur (< 20°C)',
+          roomTempCriticalBanner: '🔥 SCHWERER RAUMALARM: Raumumgebungstemperatur kritisch (≥ 35°C). Gefahr für Geräte; Klimatisierung sofort prüfen.',
           graveBadge: 'KRITISCH!',
           alarmPillText: n => `${n} aktive ${n === 1 ? 'Alarm' : 'Alarme'}`,
           dragHandleTitle: 'Ziehen, um nach Wichtigkeit zu sortieren',
@@ -1123,7 +1177,7 @@
           if (x.autonomyMinutes != null && x.autonomyMinutes <= 30) {
             reasons.push(t('alarmAutLow', formatAutonomy(x.autonomyMinutes, false)));
           }
-          if (x.externalTemperature != null && x.externalTemperature >= 25) {
+          if (x.externalTemperature != null && x.externalTemperature >= 35) {
             reasons.push(t('alarmExtTempHigh', x.externalTemperature));
           }
           if (x.internalTemperature != null && x.internalTemperature > 40) {
@@ -1150,7 +1204,7 @@
 
       function renderAlarmsPopup(alarms) {
         const body = $('#alarmBody');
-        const hasSevereRoomTemp = alarms.some(a => a.device && a.device.externalTemperature != null && a.device.externalTemperature >= 25);
+        const hasSevereRoomTemp = alarms.some(a => a.device && a.device.externalTemperature != null && a.device.externalTemperature >= 35);
         const bannerHtml = hasSevereRoomTemp ? `
       <div style="background: rgba(239, 68, 68, 0.16); border: 1.5px solid #e74c3c; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; font-weight: 700; color: #ef4444; display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 1.4;">
         <span style="font-size: 20px;">🔥</span>
@@ -1169,7 +1223,7 @@
         }
 
         body.innerHTML = muteHtml + bannerHtml + alarms.map(a => {
-          const hasRoomTempAlarm = a.device && a.device.externalTemperature != null && a.device.externalTemperature >= 25;
+          const hasRoomTempAlarm = a.device && a.device.externalTemperature != null && a.device.externalTemperature >= 35;
           return `
       <div class="alarm-item ${hasRoomTempAlarm ? 'alarm-item-severe' : ''}">
         <span class="alarm-item-icon">${hasRoomTempAlarm ? '🔥' : '⚠️'}</span>
@@ -1283,7 +1337,26 @@
           const isOnline = x.connected === true;
           const reasons = getAlarmReasons(x);
           const isRed = reasons.length > 0;
-          const isHealthy = isOnline && !isRed;
+
+          const extTempVal = (x.externalTemperature != null && x.externalTemperature !== '' && !isNaN(x.externalTemperature))
+            ? Number(x.externalTemperature)
+            : null;
+          const extTempGrave = isOnline && extTempVal != null && extTempVal >= 35;
+          const extTempOrange = isOnline && extTempVal != null && extTempVal > 25 && extTempVal < 35;
+          const extTempGreen = isOnline && extTempVal != null && extTempVal >= 20 && extTempVal <= 25;
+          const extTempCool = isOnline && extTempVal != null && extTempVal < 20;
+
+          // Internal temperature logic:
+          // Temperatures up to 40°C are safe and normal ("las temperaturas internas hasta 40 grados no deben alarmar").
+          // Only temperatures strictly > 40°C maintained for more than 24 hours trigger a critical alarm.
+          const overtempSinceMs = x.overtempSince ? new Date(x.overtempSince).getTime() : Date.now();
+          const overtempHours = (Date.now() - overtempSinceMs) / 3600000;
+          const intTempCritical = isOnline && x.internalTemperature != null && x.internalTemperature > 40 && overtempHours >= 24;
+          const intTempWarning = isOnline && x.internalTemperature != null && x.internalTemperature > 40 && overtempHours < 24;
+          const intTempNormal = isOnline && x.internalTemperature != null && x.internalTemperature <= 40;
+
+          const isWarn = !isRed && isOnline && (extTempOrange || intTempWarning);
+          const isHealthy = isOnline && !isRed && !isWarn;
 
           let stateLabel = '';
           let stateClass = '';
@@ -1293,13 +1366,36 @@
           } else if (isRed) {
             stateLabel = t('stateRed');
             stateClass = 'red';
+          } else if (isWarn) {
+            stateLabel = t('stateWarn');
+            stateClass = 'warn';
           } else {
             stateLabel = t('connected');
             stateClass = 'online';
           }
 
-          const cardClass = isHealthy ? 'card-healthy' : 'card-red';
-          const cardHint = isHealthy ? t('optimalState') : reasons.join('. ');
+          let cardClass = 'card-healthy';
+          if (!isOnline) {
+            cardClass = 'card-offline';
+          } else if (isRed) {
+            cardClass = 'card-red';
+          } else if (isWarn) {
+            cardClass = 'card-warn';
+          }
+
+          let cardHint = '';
+          if (!isOnline) {
+            cardHint = t('offline');
+          } else if (isRed) {
+            cardHint = reasons.join('. ');
+          } else if (isWarn) {
+            const warnReasons = [];
+            if (extTempOrange) warnReasons.push(t('extTempWarn', extTempVal));
+            if (intTempWarning) warnReasons.push(t('intTempOvertempWarn', Math.floor(overtempHours)));
+            cardHint = warnReasons.join('. ');
+          } else {
+            cardHint = t('optimalState');
+          }
 
           const timeStr = x.updatedAt ? new Date(x.updatedAt).toLocaleTimeString(dateLocale) : '';
 
@@ -1313,21 +1409,32 @@
 
           const batBad = isOnline && x.batteryPercent != null && x.batteryPercent <= 30;
           const autBad = isOnline && x.autonomyMinutes != null && x.autonomyMinutes <= 30;
-          const extTempBad = isOnline && x.externalTemperature != null && x.externalTemperature >= 25;
-
-          // Internal temperature logic:
-          // Temperatures up to 40°C are safe and normal ("las temperaturas internas hasta 40 grados no deben alarmar").
-          // Only temperatures strictly > 40°C maintained for more than 24 hours trigger a critical alarm.
-          const overtempSinceMs = x.overtempSince ? new Date(x.overtempSince).getTime() : Date.now();
-          const overtempHours = (Date.now() - overtempSinceMs) / 3600000;
-          const intTempCritical = isOnline && x.internalTemperature != null && x.internalTemperature > 40 && overtempHours >= 24;
-          const intTempWarning = isOnline && x.internalTemperature != null && x.internalTemperature > 40 && overtempHours < 24;
-          const intTempNormal = isOnline && x.internalTemperature != null && x.internalTemperature <= 40;
 
           let intTempHint = '';
           if (intTempCritical) intTempHint = t('alarmIntTemp24h', x.internalTemperature, Math.floor(overtempHours));
           else if (intTempWarning) intTempHint = t('intTempOvertempWarn', Math.floor(overtempHours));
           else if (intTempNormal) intTempHint = t('intTempNormal');
+
+          let extTempClass = '';
+          let extTempBadge = '';
+          let extTempHint = '';
+          if (extTempGrave) {
+            extTempClass = 'val-red val-pulse';
+            extTempBadge = `<span class="severe-badge">${esc(t('graveBadge'))}</span>`;
+            extTempHint = t('alarmExtTempHigh', extTempVal);
+          } else if (extTempOrange) {
+            extTempClass = 'val-orange';
+            extTempBadge = `<span class="warn-orange-badge">${esc(t('warnBadge'))}</span>`;
+            extTempHint = t('extTempWarn', extTempVal);
+          } else if (extTempGreen) {
+            extTempClass = 'val-green';
+            extTempHint = t('extTempOptimal');
+          } else if (extTempCool) {
+            extTempClass = 'val-green';
+            extTempHint = t('extTempCool');
+          } else if (x.externalTemperature == null) {
+            extTempHint = t('noProbe');
+          }
 
           return `<article class="card ${cardClass}" draggable="true" data-index="${i}" title="${esc(cardHint)}">
         <div class="card-top">
@@ -1354,8 +1461,8 @@
             <div class="value ${intTempCritical ? 'val-red' : ''}" ${intTempHint ? `title="${esc(intTempHint)}"` : ''}>${intTemp}<span class="unit">°C</span></div>
           </div>
           <div class="metric">
-            <div class="label">${esc(t('externalTemp'))} ${extTempBad ? `<span class="severe-badge">${esc(t('graveBadge'))}</span>` : ''}</div>
-            <div class="value ${extTempBad ? 'val-red val-pulse' : ''}" ${x.externalTemperature == null ? `title="${esc(t('noProbe'))}"` : ''}>${extTemp}<span class="unit">°C</span></div>
+            <div class="label">${esc(t('externalTemp'))} ${extTempBadge}</div>
+            <div class="value ${extTempClass}" ${extTempHint ? `title="${esc(extTempHint)}"` : ''}>${extTemp}<span class="unit">°C</span></div>
           </div>
           <div class="metric span2">
             <div class="label">${esc(t('humidity'))}</div>
