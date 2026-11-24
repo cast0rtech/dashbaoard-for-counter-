@@ -822,8 +822,7 @@
     </div>
     <div class="alarm-body" id="alarmBody"></div>
     <div class="alarm-foot">
-      <button class="btn primary" id="silenceAlarmBtn" style="background:#e74c3c;border-color:#c0392b">Aceptar /
-        Silenciar</button>
+      <button class="btn primary" id="silenceAlarmBtn" style="background:#e74c3c;border-color:#c0392b">Aceptar (silenciar 48h)</button>
     </div>
   </dialog>
 
@@ -838,7 +837,11 @@
       let pollInterval = null;
 
       // Active alarms tracking
-      const dismissedAlarms = new Set();
+      const POPUP_AUTO_CLOSE_MS = 2000; // Desaparece a los 2 segundos
+      const POPUP_REAPPEAR_INTERVAL_MS = 30 * 60 * 1000; // Reaparece cada 30 minutos
+      const ACCEPT_MUTE_DURATION_MS = 48 * 60 * 60 * 1000; // Si se acepta, no vuelve a salir durante 48 horas
+
+      let autoCloseTimer = null;
       let currentActiveAlarms = [];
 
       const I18N = {
@@ -880,7 +883,9 @@
           warningState: 'Alerta: valores fuera de rango o fallo de conexión',
           alarmHeadText: '🚨 ALARMA CRÍTICA DE UPS',
           alarmBadge: 'Activa',
-          silenceAlarmBtn: 'Aceptar / Silenciar alarma',
+          silenceAlarmBtn: 'Aceptar (silenciar 48h)',
+          alarmAcceptedToast: 'Alarmas aceptadas. No se mostrarán avisos durante 48 horas.',
+          alarmMutedNotice: h => `Avisos silenciados por aceptación (${h}h restantes)`,
           alarmLostConnection: 'Pérdida de conexión Modbus TCP',
           alarmBatLow: bat => `Batería baja: ${bat}% (requerido > 30%)`,
           alarmAutLow: aut => `Autonomía baja: ${aut} (requerido > 30 min / 0h 30min)`,
@@ -938,7 +943,9 @@
           warningState: 'Alert: values outside optimal range or connection loss',
           alarmHeadText: '🚨 CRITICAL UPS ALARM',
           alarmBadge: 'Active',
-          silenceAlarmBtn: 'Acknowledge / Silence alarm',
+          silenceAlarmBtn: 'Acknowledge (silence 48h)',
+          alarmAcceptedToast: 'Alarms acknowledged. Popups muted for 48 hours.',
+          alarmMutedNotice: h => `Popups muted after acceptance (${h}h remaining)`,
           alarmLostConnection: 'Lost Modbus TCP connection',
           alarmBatLow: bat => `Low battery: ${bat}% (required > 30%)`,
           alarmAutLow: aut => `Low runtime: ${aut} (required > 30 min / 0h 30min)`,
@@ -996,7 +1003,9 @@
           warningState: 'Warnung: Werte außerhalb des optimalen Bereichs oder Verbindungsverlust',
           alarmHeadText: '🚨 KRITISCHER USV-ALARM',
           alarmBadge: 'Aktiv',
-          silenceAlarmBtn: 'Quittieren / Stummschalten',
+          silenceAlarmBtn: 'Quittieren (48h stumm)',
+          alarmAcceptedToast: 'Alarme quittiert. Popups für 48 Stunden stummgeschaltet.',
+          alarmMutedNotice: h => `Popups nach Quittierung stummgeschaltet (noch ${h}h)`,
           alarmLostConnection: 'Modbus-TCP-Verbindung verloren',
           alarmBatLow: bat => `Niedriger Batteriestand: ${bat}% (erforderlich > 30%)`,
           alarmAutLow: aut => `Geringe Autonomie: ${aut} (erforderlich > 30 min / 0h 30min)`,
@@ -1148,7 +1157,18 @@
         <span>${esc(t('roomTempCriticalBanner'))}</span>
       </div>` : '';
 
-        body.innerHTML = bannerHtml + alarms.map(a => {
+        const acceptedUntil = Number(localStorage.getItem('ups-alarms-accepted-until') || 0);
+        let muteHtml = '';
+        if (Date.now() < acceptedUntil) {
+          const hoursLeft = Math.max(1, Math.ceil((acceptedUntil - Date.now()) / (3600 * 1000)));
+          muteHtml = `
+      <div style="background: rgba(46, 204, 113, 0.15); border: 1px solid #2ecc71; border-radius: 10px; padding: 8px 12px; margin-bottom: 12px; font-weight: 600; color: #2ecc71; font-size: 12px; display: flex; align-items: center; gap: 6px;">
+        <span>✓</span>
+        <span>${esc(t('alarmMutedNotice', hoursLeft))}</span>
+      </div>`;
+        }
+
+        body.innerHTML = muteHtml + bannerHtml + alarms.map(a => {
           const hasRoomTempAlarm = a.device && a.device.externalTemperature != null && a.device.externalTemperature >= 25;
           return `
       <div class="alarm-item ${hasRoomTempAlarm ? 'alarm-item-severe' : ''}">
@@ -1166,48 +1186,82 @@
       }
 
       function checkAlarmsAndNotify() {
-        const newAlarms = [];
-        let shouldTriggerPopup = false;
-
         currentActiveAlarms = [];
         for (const x of items) {
           const reasons = getAlarmReasons(x);
           if (reasons.length > 0) {
             const alarmKey = x.name + ':' + reasons.join('|');
             currentActiveAlarms.push({ device: x, reasons, key: alarmKey });
-            if (!dismissedAlarms.has(alarmKey)) {
-              shouldTriggerPopup = true;
-            }
           }
         }
 
         updateAlarmPill();
 
-        if (shouldTriggerPopup && currentActiveAlarms.length > 0) {
-          renderAlarmsPopup(currentActiveAlarms);
-          playAlarmBeep();
-          const dlg = $('#alarmDialog');
-          if (!dlg.open) {
-            dlg.showModal();
-          }
+        if (currentActiveAlarms.length === 0) {
+          return;
+        }
+
+        const now = Date.now();
+        const acceptedUntil = Number(localStorage.getItem('ups-alarms-accepted-until') || 0);
+
+        // Si se acepta, no deben salir pop-ups hasta 48h después, pese a haber nuevas notificaciones
+        if (now < acceptedUntil) {
+          return;
+        }
+
+        // Reaparecer cada 30 minutos
+        const lastShown = Number(localStorage.getItem('ups-alarm-popup-last-shown') || 0);
+        if (!lastShown || now - lastShown >= POPUP_REAPPEAR_INTERVAL_MS) {
+          triggerAlarmPopup();
         }
       }
 
-      // Dismiss button for alarm popup
+      function triggerAlarmPopup() {
+        const now = Date.now();
+        localStorage.setItem('ups-alarm-popup-last-shown', String(now));
+
+        renderAlarmsPopup(currentActiveAlarms);
+        playAlarmBeep();
+
+        const dlg = $('#alarmDialog');
+        if (!dlg.open) {
+          dlg.showModal();
+        }
+
+        // Desaparecer automáticamente a los dos segundos
+        clearTimeout(autoCloseTimer);
+        autoCloseTimer = setTimeout(() => {
+          if (dlg.open) {
+            dlg.close();
+          }
+        }, POPUP_AUTO_CLOSE_MS);
+      }
+
+      function acceptAlarms() {
+        clearTimeout(autoCloseTimer);
+        const until = Date.now() + ACCEPT_MUTE_DURATION_MS;
+        localStorage.setItem('ups-alarms-accepted-until', String(until));
+        const dlg = $('#alarmDialog');
+        if (dlg.open) {
+          dlg.close();
+        }
+        toast(t('alarmAcceptedToast'));
+      }
+
+      // Dismiss / Aceptar button for alarm popup
       $('#silenceAlarmBtn').onclick = () => {
-        currentActiveAlarms.forEach(a => dismissedAlarms.add(a.key));
-        $('#alarmDialog').close();
+        acceptAlarms();
       };
       $('#alarmDialog').addEventListener('click', e => {
         if (e.target === $('#alarmDialog')) {
-          currentActiveAlarms.forEach(a => dismissedAlarms.add(a.key));
-          $('#alarmDialog').close();
+          acceptAlarms();
         }
       });
 
       // Re-open alarm dialog via header pill
       $('#alarmPillBtn').onclick = () => {
         if (currentActiveAlarms.length > 0) {
+          clearTimeout(autoCloseTimer);
           renderAlarmsPopup(currentActiveAlarms);
           $('#alarmDialog').showModal();
         }

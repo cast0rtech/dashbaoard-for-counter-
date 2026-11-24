@@ -1,19 +1,11 @@
 [
   {
-    "name": "RZ 1",
+    "name": "RZ1",
     "ip": "10.62.62.44",
     "port": 502,
     "unitId": 1,
     "timeoutMs": 1800,
-    "card": "NetMan 208"
-  },
-  {
-    "name": "RZ 2",
-    "ip": "10.62.62.45",
-    "port": 502,
-    "unitId": 1,
-    "timeoutMs": 1800,
-    "card": "NetMan 208"
+    "card": "NetMan 208c"
   },
   {
     "name": "RZ 3",
@@ -56,14 +48,6 @@
     "card": "NetMan 204"
   },
   {
-    "name": "TE01419",
-    "ip": "10.62.62.4",
-    "port": 502,
-    "unitId": 1,
-    "timeoutMs": 1800,
-    "card": "NetMan 204"
-  },
-  {
     "name": "TE01336",
     "ip": "10.62.62.10",
     "port": 502,
@@ -74,22 +58,6 @@
   {
     "name": "--",
     "ip": "10.62.62.16",
-    "port": 502,
-    "unitId": 1,
-    "timeoutMs": 1800,
-    "card": "NetMan 208c"
-  },
-  {
-    "name": "TE016439A",
-    "ip": "10.62.62.17",
-    "port": 502,
-    "unitId": 1,
-    "timeoutMs": 1800,
-    "card": "NetMan 208c"
-  },
-  {
-    "name": "TE016439B",
-    "ip": "10.62.62.18",
     "port": 502,
     "unitId": 1,
     "timeoutMs": 1800,
@@ -120,24 +88,8 @@
     "card": "NetMan 204"
   },
   {
-    "name": "TE031226",
-    "ip": "10.62.62.21",
-    "port": 502,
-    "unitId": 1,
-    "timeoutMs": 1800,
-    "card": "NetMan 204"
-  },
-  {
     "name": "a",
     "ip": "10.62.62.23",
-    "port": 502,
-    "unitId": 1,
-    "timeoutMs": 1800,
-    "card": "NetMan 204"
-  },
-  {
-    "name": "b",
-    "ip": "10.62.62.26",
     "port": 502,
     "unitId": 1,
     "timeoutMs": 1800,
@@ -192,22 +144,6 @@
     "card": "NetMan 204"
   },
   {
-    "name": "RZ1",
-    "ip": "10.62.62.44",
-    "port": 502,
-    "unitId": 1,
-    "timeoutMs": 1800,
-    "card": "NetMan 208c"
-  },
-  {
-    "name": "RZ2",
-    "ip": "10.62.62.45",
-    "port": 502,
-    "unitId": 1,
-    "timeoutMs": 1800,
-    "card": "NetMan 204"
-  },
-  {
     "name": "TE012519",
     "ip": "10.62.62.88",
     "port": 502,
@@ -218,6 +154,22 @@
   {
     "name": "c",
     "ip": "10.62.62.239",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 208"
+  },
+  {
+    "name": "TE012419",
+    "ip": "10.62.62.4",
+    "port": 502,
+    "unitId": 1,
+    "timeoutMs": 1800,
+    "card": "NetMan 208c"
+  },
+  {
+    "name": "RZ 2",
+    "ip": "10.62.62.45",
     "port": 502,
     "unitId": 1,
     "timeoutMs": 1800,
