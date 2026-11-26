@@ -304,6 +304,54 @@
       animation: cardPulseRed 2s infinite;
     }
 
+    .card.is-refreshing {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 2px var(--accent-soft), 0 0 20px rgba(29, 179, 116, 0.45) !important;
+      animation: cardPulseRefresh 1s infinite alternate ease-in-out;
+    }
+
+    [data-theme=dark] .card.is-refreshing {
+      border-color: #2ecc71 !important;
+      box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.4), 0 0 25px rgba(46, 204, 113, 0.5) !important;
+      animation: cardPulseRefreshDark 1s infinite alternate ease-in-out;
+    }
+
+    @keyframes cardPulseRefresh {
+      0% {
+        box-shadow: 0 0 0 1px var(--accent-soft), 0 0 10px rgba(29, 179, 116, 0.2);
+      }
+      100% {
+        box-shadow: 0 0 0 3px var(--accent), 0 0 22px rgba(29, 179, 116, 0.55);
+      }
+    }
+
+    @keyframes cardPulseRefreshDark {
+      0% {
+        box-shadow: 0 0 0 1px rgba(46, 204, 113, 0.25), 0 0 12px rgba(46, 204, 113, 0.25);
+      }
+      100% {
+        box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.55), 0 0 26px rgba(46, 204, 113, 0.65);
+      }
+    }
+
+    .card-refresh-spinner {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border: 1.5px solid rgba(255, 255, 255, 0.45);
+      border-top-color: currentColor;
+      border-radius: 50%;
+      animation: spinRefresh 0.75s linear infinite;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    @keyframes spinRefresh {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
     @keyframes cardPulseRed {
 
       0%,
@@ -882,6 +930,48 @@
 
       let autoCloseTimer = null;
       let currentActiveAlarms = [];
+      const refreshingDevices = new Set();
+
+      async function refreshIndividualUps(name) {
+        if (!name) return;
+        const key = name.toLowerCase();
+        if (refreshingDevices.has(key)) return;
+
+        refreshingDevices.add(key);
+        render();
+        toast(t('pollingStarted', name));
+
+        try {
+          const res = await fetch('/api/ups/poll', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ name })
+          });
+          const data = await res.json();
+          if (!res.ok || !data.ok) {
+            throw new Error(data.error || 'Error al conectar');
+          }
+          if (data.device) {
+            const idx = items.findIndex(x => x.name.toLowerCase() === key);
+            if (idx !== -1) {
+              items[idx] = { ...items[idx], ...data.device };
+            }
+          }
+          toast(t('pollingSuccess', name));
+        } catch (err) {
+          toast(t('pollingError', name, err.message));
+          const idx = items.findIndex(x => x.name.toLowerCase() === key);
+          if (idx !== -1) {
+            items[idx].connected = false;
+            items[idx].error = err.message;
+            items[idx].updatedAt = new Date().toISOString();
+          }
+        } finally {
+          refreshingDevices.delete(key);
+          render();
+          checkAlarmsAndNotify();
+        }
+      }
 
       const I18N = {
         es: {
@@ -942,6 +1032,11 @@
           alarmPillText: n => `${n} ${n === 1 ? 'alarma activa' : 'alarmas activas'}`,
           dragHandleTitle: 'Arrastra para reordenar por importancia',
           orderSaved: 'Prioridad de UPS actualizada y guardada.',
+          refreshingState: 'Actualizando...',
+          pollingStarted: name => `Reiniciando polling de ${name}...`,
+          pollingSuccess: name => `${name}: lectura actualizada y polling reiniciado`,
+          pollingError: (name, err) => `Error al leer ${name}: ${err}`,
+          dblClickHint: 'Doble clic para reiniciar el polling individual',
           errName: 'El nombre no puede estar vacío.',
           errIp: 'Introduce una dirección IPv4 válida.',
           errDuplicate: name => `Ya existe un equipo con el nombre "${name}".`,
@@ -1007,6 +1102,11 @@
           alarmPillText: n => `${n} active ${n === 1 ? 'alarm' : 'alarms'}`,
           dragHandleTitle: 'Drag to reorder by importance',
           orderSaved: 'UPS priority updated and saved.',
+          refreshingState: 'Updating...',
+          pollingStarted: name => `Restarting polling for ${name}...`,
+          pollingSuccess: name => `${name}: reading updated and polling restarted`,
+          pollingError: (name, err) => `Error reading ${name}: ${err}`,
+          dblClickHint: 'Double click to restart individual polling',
           errName: 'Name cannot be empty.',
           errIp: 'Please enter a valid IPv4 address.',
           errDuplicate: name => `A device named "${name}" already exists.`,
@@ -1072,6 +1172,11 @@
           alarmPillText: n => `${n} aktive ${n === 1 ? 'Alarm' : 'Alarme'}`,
           dragHandleTitle: 'Ziehen, um nach Wichtigkeit zu sortieren',
           orderSaved: 'USV-Priorität aktualisiert und gespeichert.',
+          refreshingState: 'Wird aktualisiert...',
+          pollingStarted: name => `Polling für ${name} neu gestartet...`,
+          pollingSuccess: name => `${name}: Messwerte aktualisiert und Polling neu gestartet`,
+          pollingError: (name, err) => `Fehler beim Lesen von ${name}: ${err}`,
+          dblClickHint: 'Doppelklick zum Neustarten des individuellen Pollings',
           errName: 'Name darf nicht leer sein.',
           errIp: 'Bitte eine gültige IPv4-Adresse eingeben.',
           errDuplicate: name => `Ein Gerät namens "${name}" existiert bereits.`,
@@ -1357,10 +1462,14 @@
 
           const isWarn = !isRed && isOnline && (extTempOrange || intTempWarning);
           const isHealthy = isOnline && !isRed && !isWarn;
+          const isRefreshing = refreshingDevices.has(x.name.toLowerCase());
 
           let stateLabel = '';
           let stateClass = '';
-          if (!isOnline) {
+          if (isRefreshing) {
+            stateLabel = `<span class="card-refresh-spinner"></span>${t('refreshingState')}`;
+            stateClass = 'online';
+          } else if (!isOnline) {
             stateLabel = t('offline');
             stateClass = 'offline';
           } else if (isRed) {
@@ -1375,7 +1484,9 @@
           }
 
           let cardClass = 'card-healthy';
-          if (!isOnline) {
+          if (isRefreshing) {
+            cardClass = isRed ? 'card-red is-refreshing' : isWarn ? 'card-warn is-refreshing' : isOnline ? 'card-healthy is-refreshing' : 'card-offline is-refreshing';
+          } else if (!isOnline) {
             cardClass = 'card-offline';
           } else if (isRed) {
             cardClass = 'card-red';
@@ -1396,6 +1507,8 @@
           } else {
             cardHint = t('optimalState');
           }
+
+          const fullHint = cardHint ? `${cardHint} · ${t('dblClickHint')}` : t('dblClickHint');
 
           const timeStr = x.updatedAt ? new Date(x.updatedAt).toLocaleTimeString(dateLocale) : '';
 
@@ -1436,7 +1549,7 @@
             extTempHint = t('noProbe');
           }
 
-          return `<article class="card ${cardClass}" draggable="true" data-index="${i}" title="${esc(cardHint)}">
+          return `<article class="card ${cardClass}" draggable="true" data-index="${i}" data-name="${esc(x.name)}" title="${esc(fullHint)}">
         <div class="card-top">
           <div style="display:flex;align-items:flex-start;gap:6px;">
             <span class="drag-handle" title="${esc(t('dragHandleTitle'))}">⠿</span>
@@ -1445,7 +1558,7 @@
               <div class="meta">${esc(x.card || 'NetMan 208')}</div>
             </div>
           </div>
-          <span class="state ${stateClass}" title="${esc(cardHint || stateLabel)}">${stateLabel}</span>
+          <span class="state ${stateClass}" title="${esc(cardHint || (isRefreshing ? t('refreshingState') : stateLabel))}">${stateLabel}</span>
         </div>
         <div class="metrics">
           <div class="metric">
@@ -1495,6 +1608,15 @@
         const cardElements = document.querySelectorAll('#cards .card');
 
         cardElements.forEach(card => {
+          card.addEventListener('dblclick', async e => {
+            if (e.target.closest('button') || e.target.closest('.remove')) return;
+            e.preventDefault();
+            const idx = Number(card.dataset.index);
+            const device = items[idx];
+            if (!device) return;
+            await refreshIndividualUps(device.name);
+          });
+
           card.addEventListener('dragstart', e => {
             if (e.target.closest('button')) {
               e.preventDefault();

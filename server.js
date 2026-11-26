@@ -43,6 +43,35 @@ let history = { version: 2, calculation: 'sampled-power-integration-v1', meters:
 let upsDevices = [];
 let upsReadings = new Map();
 let upsPollRunning = false;
+const upsDevicePolling = new Set();
+const upsDeviceTimers = new Map();
+
+function scheduleUpsDevicePoll(device, delayMs = POLL_MS) {
+  if (!device || !device.name) return;
+  const key = device.name.toLowerCase();
+  if (upsDeviceTimers.has(key)) {
+    clearTimeout(upsDeviceTimers.get(key));
+    upsDeviceTimers.delete(key);
+  }
+  const timer = setTimeout(async () => {
+    const current = upsDevices.find(d => d.name.toLowerCase() === key);
+    if (!current) {
+      upsDeviceTimers.delete(key);
+      return;
+    }
+    await pollUpsDevice(current);
+    scheduleUpsDevicePoll(current, POLL_MS);
+  }, delayMs);
+  timer.unref();
+  upsDeviceTimers.set(key, timer);
+}
+
+function clearAllUpsDeviceTimers() {
+  for (const timer of upsDeviceTimers.values()) {
+    clearTimeout(timer);
+  }
+  upsDeviceTimers.clear();
+}
 const overtempTracker = new Map(); // name -> timestamp ISO when temperature first exceeded 40C (> 40C)
 
 function localDateKey(date = new Date()) {
@@ -480,52 +509,65 @@ async function pollAll() {
 function usableRegister(value) { return value === 0xffff ? null : value; }
 
 async function pollUpsDevice(device) {
-  const endpoint = makeMeter({ name: device.name, ip: device.ip, port: device.port, unitId: device.unitId, timeoutMs: device.timeoutMs, model: device.card });
+  if (!device || !device.name) return;
+  const key = device.name.toLowerCase();
+  if (upsDevicePolling.has(key)) return;
+  upsDevicePolling.add(key);
   try {
-    const battery = await readHoldingRegisters(endpoint, 51, 1);
-    const autonomy = await readHoldingRegisters(endpoint, 53, 1);
-    const internalTemperature = await readHoldingRegisters(endpoint, 61, 1);
-    const intTemp = usableRegister(internalTemperature[0]);
-    let overtempSince = overtempTracker.get(device.name) || null;
-    if (intTemp != null && intTemp > 40) {
-      if (!overtempSince) {
-        overtempSince = new Date().toISOString();
-        overtempTracker.set(device.name, overtempSince);
-      }
-    } else if (intTemp != null && intTemp <= 40) {
-      overtempSince = null;
-      overtempTracker.delete(device.name);
-    }
-    let externalTemperature = null, humidity = null, sensorStatus = null, sensorError = '';
+    const endpoint = makeMeter({ name: device.name, ip: device.ip, port: device.port, unitId: device.unitId, timeoutMs: device.timeoutMs, model: device.card });
     try {
-      const sensor = await readHoldingRegisters(endpoint, 221, 4);
-      const rawTemp = usableRegister(sensor[0]); // Register 221: Ambient temperature
-      const rawHum = usableRegister(sensor[3]);  // Register 224: Ambient humidity
-      if (rawTemp != null) {
-        externalTemperature = rawTemp > 70 ? Number((rawTemp / 10).toFixed(1)) : rawTemp;
+      const battery = await readHoldingRegisters(endpoint, 51, 1);
+      const autonomy = await readHoldingRegisters(endpoint, 53, 1);
+      const internalTemperature = await readHoldingRegisters(endpoint, 61, 1);
+      const intTemp = usableRegister(internalTemperature[0]);
+      let overtempSince = overtempTracker.get(device.name) || null;
+      if (intTemp != null && intTemp > 40) {
+        if (!overtempSince) {
+          overtempSince = new Date().toISOString();
+          overtempTracker.set(device.name, overtempSince);
+        }
+      } else if (intTemp != null && intTemp <= 40) {
+        overtempSince = null;
+        overtempTracker.delete(device.name);
       }
-      if (rawHum != null) {
-        humidity = rawHum > 100 ? Number((rawHum / 10).toFixed(1)) : rawHum;
-      }
-    } catch (error) { sensorError = error.message; }
-    upsReadings.set(device.name, {
-      batteryPercent: usableRegister(battery[0]),
-      autonomyMinutes: usableRegister(autonomy[0]),
-      internalTemperature: intTemp,
-      overtempSince,
-      externalTemperature, humidity, sensorStatus, sensorError,
-      connected: true, error: '', updatedAt: new Date().toISOString(),
-    });
-  } catch (error) {
-    const previous = upsReadings.get(device.name) || {};
-    upsReadings.set(device.name, { ...previous, connected: false, error: error.message, updatedAt: new Date().toISOString() });
+      let externalTemperature = null, humidity = null, sensorStatus = null, sensorError = '';
+      try {
+        const sensor = await readHoldingRegisters(endpoint, 221, 4);
+        const rawTemp = usableRegister(sensor[0]); // Register 221: Ambient temperature
+        const rawHum = usableRegister(sensor[3]);  // Register 224: Ambient humidity
+        if (rawTemp != null) {
+          externalTemperature = rawTemp > 70 ? Number((rawTemp / 10).toFixed(1)) : rawTemp;
+        }
+        if (rawHum != null) {
+          humidity = rawHum > 100 ? Number((rawHum / 10).toFixed(1)) : rawHum;
+        }
+      } catch (error) { sensorError = error.message; }
+      upsReadings.set(device.name, {
+        batteryPercent: usableRegister(battery[0]),
+        autonomyMinutes: usableRegister(autonomy[0]),
+        internalTemperature: intTemp,
+        overtempSince,
+        externalTemperature, humidity, sensorStatus, sensorError,
+        connected: true, error: '', updatedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      const previous = upsReadings.get(device.name) || {};
+      upsReadings.set(device.name, { ...previous, connected: false, error: error.message, updatedAt: new Date().toISOString() });
+    }
+  } finally {
+    upsDevicePolling.delete(key);
   }
 }
 
 async function pollAllUps() {
   if (upsPollRunning || !upsDevices.length) return;
   upsPollRunning = true;
-  try { await Promise.all(upsDevices.map(pollUpsDevice)); }
+  try {
+    await Promise.all(upsDevices.map(async device => {
+      await pollUpsDevice(device);
+      scheduleUpsDevicePoll(device, POLL_MS);
+    }));
+  }
   finally { upsPollRunning = false; }
 }
 
@@ -575,10 +617,58 @@ const server = http.createServer((req, res) => {
       if (parsed.some(x => !x) || parsed.length > 500) return sendJson(res, 400, { error: 'Revisa nombre, IP y tipo de tarjeta en el inventario.' });
       const names = new Set();
       for (const item of parsed) { const key = item.name.toLowerCase(); if (names.has(key)) return sendJson(res, 400, { error: `Nombre duplicado: ${item.name}` }); names.add(key); }
-      try { upsDevices = parsed; upsReadings = new Map(); await saveUpsInventory(); }
+      try {
+        clearAllUpsDeviceTimers();
+        upsDevices = parsed;
+        upsReadings = new Map();
+        await saveUpsInventory();
+      }
       catch (error) { return sendJson(res, 500, { error: `No se pudo guardar el inventario Riello: ${error.message}` }); }
       pollAllUps();
       return sendJson(res, 200, { count: upsDevices.length });
+    });
+    return;
+  }
+  if ((req.method === 'POST' || req.method === 'GET') && req.url.startsWith('/api/ups/poll')) {
+    let name = '';
+    const qIndex = req.url.indexOf('?');
+    if (qIndex !== -1) {
+      const params = new URLSearchParams(req.url.slice(qIndex));
+      name = params.get('name') || '';
+    }
+    const handlePoll = async (targetName) => {
+      const cleanName = String(targetName || '').trim();
+      const device = upsDevices.find(d => d.name.toLowerCase() === cleanName.toLowerCase());
+      if (!device) {
+        return sendJson(res, 404, { error: `UPS "${cleanName}" no encontrado en el inventario.` });
+      }
+      try {
+        await pollUpsDevice(device);
+        scheduleUpsDevicePoll(device, POLL_MS);
+        const reading = upsReadings.get(device.name) || { connected: false, error: 'Sin datos' };
+        return sendJson(res, 200, { ok: true, device: { ...device, ...reading } });
+      } catch (err) {
+        return sendJson(res, 500, { error: `Error en lectura Modbus: ${err.message}` });
+      }
+    };
+
+    if (req.method === 'GET') {
+      return handlePoll(name);
+    }
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk.toString('utf8');
+      if (body.length > 8192) req.destroy();
+    });
+    req.on('end', () => {
+      let target = name;
+      if (body) {
+        try {
+          const parsed = JSON.parse(body);
+          if (parsed && parsed.name) target = parsed.name;
+        } catch {}
+      }
+      return handlePoll(target);
     });
     return;
   }
