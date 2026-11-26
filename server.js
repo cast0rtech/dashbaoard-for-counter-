@@ -11,7 +11,7 @@ const os = require('node:os');
 // Listen on LAN interfaces by default so other devices can open the dashboard.
 // Set HOST=127.0.0.1 to restrict access to this computer only.
 const HOST = process.env.HOST || '0.0.0.0';
-let PORT = Number(process.env.PORT || 8080);
+let PORT = Number(process.env.PORT || 9500);
 const PORT_WAS_EXPLICIT = Boolean(process.env.PORT);
 const POLL_MS = Math.max(3000, Number(process.env.POLL_MS || 30 * 60 * 1000));
 const TIMEOUT_MS = Math.max(500, Number(process.env.MODBUS_TIMEOUT_MS || 1800));

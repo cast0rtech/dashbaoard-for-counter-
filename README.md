@@ -1,6 +1,6 @@
 # Janitza Monitor ⚡
 
-The Riello UPS view is available at `http://127.0.0.1:8080/ups.html`. It lets you monitor Riello UPS devices with NetMan 204, 208, or 208c cards in real time over Modbus TCP (battery level, autonomy runtime, internal temperature, and environmental sensor readings), manage the device inventory, and import/export the list as CSV.
+The Riello UPS view is available at `http://127.0.0.1:9500/ups.html`. It lets you monitor Riello UPS devices with NetMan 204, 208, or 208c cards in real time over Modbus TCP (battery level, autonomy runtime, internal temperature, and environmental sensor readings), manage the device inventory, and import/export the list as CSV.
 
 A local dashboard for reading Janitza meters over Modbus TCP. The CSV inventory provides each meter's IP address, port, unit ID, model, and description. Live active power (kW) is read from each meter; energy consumption is calculated and tracked locally by this dashboard.
 
@@ -12,7 +12,7 @@ On Windows, double-click `start-dashboard.bat`. It starts the local service and 
 node server.js
 ```
 
-Open `http://127.0.0.1:8080`, choose **Load inventory**, and select a meter inventory CSV. You can also add a Siemens PAC 2200 by entering its name and IP address. **Export CSV** downloads the current inventory in an Excel-compatible format; importing that CSV on another dashboard server restores the meter list and Modbus settings. The service saves a local copy as `inventory.csv` and polls meters every 30 minutes (configurable via `POLL_MS`). When importing an inventory, only the devices present in the imported file are retained and monitored. On later launches, the saved inventory is loaded automatically. The dashboard shows each meter's connection status and keeps its last successful reading if the meter stops responding.
+Open `http://127.0.0.1:9500`, choose **Load inventory**, and select a meter inventory CSV. You can also add a Siemens PAC 2200 by entering its name and IP address. **Export CSV** downloads the current inventory in an Excel-compatible format; importing that CSV on another dashboard server restores the meter list and Modbus settings. The service saves a local copy as `inventory.csv` and polls meters every 30 minutes (configurable via `POLL_MS`). When importing an inventory, only the devices present in the imported file are retained and monitored. On later launches, the saved inventory is loaded automatically. The dashboard shows each meter's connection status and keeps its last successful reading if the meter stops responding.
 
 Select any meter card on the main page to open its individual history chart. The chart shows daily energy consumption for the last 7, 14, or 30 days. The dashboard integrates its locally sampled active-power readings over time and stores the resulting history and local energy total in `local-consumption.json`. It does not use the meter's stored cumulative kWh register for tracking. A new installation starts accumulating history after its first successful poll; it cannot recreate days from before the dashboard was running. Intervals longer than five minutes are skipped so downtime is not counted as consumption.
 
